@@ -1,9 +1,0 @@
-/.parcel-cache
-/node_modules
-/accidental-build
-/.nyc_output
-/examples
-.github
-.prettierrc
-.swcrc
-/test
