@@ -4,10 +4,7 @@ let $Enums = new Set()
 
 /* BEGIN PREAMBLE */
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
-import { gql } from 'graphql-tag'
-
-/* tslint:disable */
-/* eslint-disable */
+import gql from 'graphql-tag'
 
 const VariableName = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd8'
 
@@ -15,14 +12,14 @@ const ScalarBrandingField = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd9'
 
 type CustomScalar<T> = { [ScalarBrandingField]: T }
 
-class Variable<T, Name extends string> {
+class Variable<T, Name extends string, IsRequired extends boolean | undefined = undefined> {
   private [VariableName]: Name
-  // @ts-ignore
-  private _type?: T
+  public readonly isRequired?: IsRequired
+  declare private _typeMarker: T
 
-  // @ts-ignore
-  constructor(name: Name, private readonly isRequired?: boolean) {
+  constructor(name: Name, isRequired?: IsRequired) {
     this[VariableName] = name
+    this.isRequired = isRequired as IsRequired
   }
 }
 
@@ -38,17 +35,17 @@ export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S>
   ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
   : T
 
-type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str>
+type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str, any>
 
 // the array wrapper prevents distributive conditional types
 // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
 type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
   ? // scalars only support variable input
-    Variable<S | null | undefined, any> | AllowedInlineScalars<S> | null | undefined
+    Variable<S | null | undefined, any, any> | AllowedInlineScalars<S> | null | undefined
   : [T] extends [CustomScalar<infer S>]
-  ? Variable<S, any> | AllowedInlineScalars<S>
+  ? Variable<S, any, any> | AllowedInlineScalars<S>
   : [T] extends [$Atomic]
-  ? Variable<T, any> | T
+  ? Variable<T, any, any> | T
   : T extends ReadonlyArray<infer I>
   ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
   : T extends Record<string, any> | null | undefined
@@ -71,8 +68,8 @@ type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
  *
  * @param name The variable name
  */
-export const $ = <Type, Name extends string>(name: Name): Variable<Type, Name> => {
-  return new Variable(name)
+export const $ = <Type, Name extends string>(name: Name): Variable<Type, Name, undefined> => {
+  return new Variable(name, undefined)
 }
 
 /**
@@ -80,7 +77,7 @@ export const $ = <Type, Name extends string>(name: Name): Variable<Type, Name> =
  *
  * @param name The variable name
  */
-export const $$ = <Type, Name extends string>(name: Name): Variable<NonNullable<Type>, Name> => {
+export const $$ = <Type, Name extends string>(name: Name): Variable<NonNullable<Type>, Name, true> => {
   return new Variable(name, true)
 }
 
@@ -107,8 +104,7 @@ class $Field<Name extends string, Type, Vars = {}> {
 }
 
 class $Base<Name extends string> {
-  // @ts-ignore
-  constructor(private $$name: Name) {}
+  constructor(protected $$name: Name) {}
 
   protected $_select<Key extends string>(
     name: Key,
@@ -118,12 +114,8 @@ class $Base<Name extends string> {
   }
 }
 
-// @ts-ignore
-class $Union<T, Name extends String> extends $Base<Name> {
-  // @ts-ignore
-  private $$type!: T
-  // @ts-ignore
-  private $$name!: Name
+class $Union<T, Name extends string> extends $Base<Name> {
+  protected $$type!: T
 
   constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
     super($$name)
@@ -139,12 +131,8 @@ class $Union<T, Name extends String> extends $Base<Name> {
   }
 }
 
-// @ts-ignore
 class $Interface<T, Name extends string> extends $Base<Name> {
-  // @ts-ignore
-  private $$type!: T
-  // @ts-ignore
-  private $$name!: Name
+  protected $$type!: T
 
   constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
     super($$name)
@@ -161,8 +149,7 @@ class $Interface<T, Name extends string> extends $Base<Name> {
 
 class $UnionSelection<T, Vars> {
   public kind: 'union' = 'union'
-  // @ts-ignore
-  private vars!: Vars
+  protected vars!: Vars
   constructor(public alternativeName: string, public alternativeSelection: Selection<T>) {}
 }
 
@@ -193,7 +180,7 @@ type PossiblyOptionalVar<VName extends string, VType> = null extends VType
   ? { [key in VName]?: VType }
   : { [key in VName]: VType }
 
-type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer VName>
+type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer VName, any>
   ? PossiblyOptionalVar<VName, VType>
   : // Avoid generating an index signature for possibly undefined or null inputs.
   // The compiler incorrectly infers null or undefined, and we must force access the Inputs
@@ -254,7 +241,7 @@ function getArgVarType(input: string): ArgVarType {
 }
 
 function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
-  const variables = new Map<string, { variable: Variable<any, any>; type: ArgVarType }>()
+  const variables = new Map<string, { variable: Variable<any, any, any>; type: ArgVarType }>()
 
   function stringifyArgs(
     args: any,
@@ -275,7 +262,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
         if (VariableName in (args as any)) {
           if (!argVarType)
             throw new globalThis.Error('Cannot use variabe as sole unnamed field argument')
-          const variable = args as Variable<any, any>
+          const variable = args as Variable<any, any, any>
           const argVarName = variable[VariableName]
           variables.set(argVarName, { type: argVarType, variable: variable })
           return '$' + argVarName
@@ -350,7 +337,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
           if (kind.isRequired) type += '!'
           if (kind.array) type += kind.array.isRequired ? ']!' : ']'
 
-          if (!type.endsWith('!') && (variable as any).isRequired === true) {
+          if (!type.endsWith('!') && variable.isRequired === true) {
             type += '!'
           }
 
@@ -427,12 +414,14 @@ export function all<I extends $Base<any>>(instance: I) {
   return allFields.map(fieldName => instance?.[fieldName]) as any as AllFields<I>
 }
 
+/* BEGIN EXACTARGNAMES */
 // We use a dummy conditional type that involves GenericType to defer the compiler's inference of
 // any possible variables nested in this type. This addresses a problem where variables are
 // inferred with type unknown
-// @ts-ignore
 type ExactArgNames<GenericType, Constraint> = GenericType extends never
   ? never
+  : GenericType extends Variable<any, any, any>
+  ? GenericType
   : [Constraint] extends [$Atomic | CustomScalar<any>]
   ? GenericType
   : Constraint extends ReadonlyArray<infer InnerConstraint>
@@ -444,3 +433,4 @@ type ExactArgNames<GenericType, Constraint> = GenericType extends never
         ? ExactArgNames<GenericType[Key], Constraint[Key]>
         : never
     }
+/* END EXACTARGNAMES */

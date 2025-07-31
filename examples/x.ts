@@ -4,7 +4,6 @@ import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
 import { gql } from 'graphql-tag'
 
 /* tslint:disable */
-/* eslint-disable */
 
 const VariableName = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd8'
 
@@ -12,14 +11,14 @@ const ScalarBrandingField = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd9'
 
 type CustomScalar<T> = { [ScalarBrandingField]: T }
 
-class Variable<T, Name extends string> {
+class Variable<T, Name extends string, IsRequired extends boolean | undefined = undefined> {
   private [VariableName]: Name
-  // @ts-ignore
-  private _type?: T
+  public readonly isRequired?: IsRequired
+  declare private _typeMarker: T
 
-  // @ts-ignore
-  constructor(name: Name, private readonly isRequired?: boolean) {
+  constructor(name: Name, isRequired?: IsRequired) {
     this[VariableName] = name
+    this.isRequired = isRequired as IsRequired
   }
 }
 
@@ -35,17 +34,17 @@ export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S>
   ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
   : T
 
-type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str>
+type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str, any>
 
 // the array wrapper prevents distributive conditional types
 // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
 type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
   ? // scalars only support variable input
-    Variable<S | null | undefined, any> | AllowedInlineScalars<S> | null | undefined
+    Variable<S | null | undefined, any, any> | AllowedInlineScalars<S> | null | undefined
   : [T] extends [CustomScalar<infer S>]
-  ? Variable<S, any> | AllowedInlineScalars<S>
+  ? Variable<S, any, any> | AllowedInlineScalars<S>
   : [T] extends [$Atomic]
-  ? Variable<T, any> | T
+  ? Variable<T, any, any> | T
   : T extends ReadonlyArray<infer I>
   ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
   : T extends Record<string, any> | null | undefined
@@ -68,8 +67,8 @@ type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
  *
  * @param name The variable name
  */
-export const $ = <Type, Name extends string>(name: Name): Variable<Type, Name> => {
-  return new Variable(name)
+export const $ = <Type, Name extends string>(name: Name): Variable<Type, Name, undefined> => {
+  return new Variable(name, undefined)
 }
 
 /**
@@ -77,7 +76,7 @@ export const $ = <Type, Name extends string>(name: Name): Variable<Type, Name> =
  *
  * @param name The variable name
  */
-export const $$ = <Type, Name extends string>(name: Name): Variable<NonNullable<Type>, Name> => {
+export const $$ = <Type, Name extends string>(name: Name): Variable<NonNullable<Type>, Name, true> => {
   return new Variable(name, true)
 }
 
@@ -104,8 +103,7 @@ class $Field<Name extends string, Type, Vars = {}> {
 }
 
 class $Base<Name extends string> {
-  // @ts-ignore
-  constructor(private $$name: Name) {}
+  constructor(protected $$name: Name) {}
 
   protected $_select<Key extends string>(
     name: Key,
@@ -115,12 +113,8 @@ class $Base<Name extends string> {
   }
 }
 
-// @ts-ignore
-class $Union<T, Name extends String> extends $Base<Name> {
-  // @ts-ignore
-  private $$type!: T
-  // @ts-ignore
-  private $$name!: Name
+class $Union<T, Name extends string> extends $Base<Name> {
+  protected $$type!: T
 
   constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
     super($$name)
@@ -136,12 +130,8 @@ class $Union<T, Name extends String> extends $Base<Name> {
   }
 }
 
-// @ts-ignore
 class $Interface<T, Name extends string> extends $Base<Name> {
-  // @ts-ignore
-  private $$type!: T
-  // @ts-ignore
-  private $$name!: Name
+  protected $$type!: T
 
   constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
     super($$name)
@@ -158,8 +148,7 @@ class $Interface<T, Name extends string> extends $Base<Name> {
 
 class $UnionSelection<T, Vars> {
   public kind: 'union' = 'union'
-  // @ts-ignore
-  private vars!: Vars
+  protected vars!: Vars
   constructor(public alternativeName: string, public alternativeSelection: Selection<T>) {}
 }
 
@@ -190,7 +179,7 @@ type PossiblyOptionalVar<VName extends string, VType> = null extends VType
   ? { [key in VName]?: VType }
   : { [key in VName]: VType }
 
-type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer VName>
+type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer VName, any>
   ? PossiblyOptionalVar<VName, VType>
   : // Avoid generating an index signature for possibly undefined or null inputs.
   // The compiler incorrectly infers null or undefined, and we must force access the Inputs
@@ -251,7 +240,7 @@ function getArgVarType(input: string): ArgVarType {
 }
 
 function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
-  const variables = new Map<string, { variable: Variable<any, any>; type: ArgVarType }>()
+  const variables = new Map<string, { variable: Variable<any, any, any>; type: ArgVarType }>()
 
   function stringifyArgs(
     args: any,
@@ -272,7 +261,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
         if (VariableName in (args as any)) {
           if (!argVarType)
             throw new globalThis.Error('Cannot use variabe as sole unnamed field argument')
-          const variable = args as Variable<any, any>
+          const variable = args as Variable<any, any, any>
           const argVarName = variable[VariableName]
           variables.set(argVarName, { type: argVarType, variable: variable })
           return '$' + argVarName
@@ -347,7 +336,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
           if (kind.isRequired) type += '!'
           if (kind.array) type += kind.array.isRequired ? ']!' : ']'
 
-          if (!type.endsWith('!') && (variable as any).isRequired === true) {
+          if (!type.endsWith('!') && variable.isRequired === true) {
             type += '!'
           }
 
@@ -424,23 +413,6 @@ export function all<I extends $Base<any>>(instance: I) {
   return allFields.map(fieldName => instance?.[fieldName]) as any as AllFields<I>
 }
 
-// We use a dummy conditional type that involves GenericType to defer the compiler's inference of
-// any possible variables nested in this type. This addresses a problem where variables are
-// inferred with type unknown
-// @ts-ignore
-type ExactArgNames<GenericType, Constraint> = GenericType extends never
-  ? never
-  : [Constraint] extends [$Atomic | CustomScalar<any>]
-  ? GenericType
-  : Constraint extends ReadonlyArray<infer InnerConstraint>
-  ? GenericType extends ReadonlyArray<infer Inner>
-    ? ReadonlyArray<ExactArgNames<Inner, InnerConstraint>>
-    : GenericType
-  : GenericType & {
-      [Key in keyof GenericType]: Key extends keyof Constraint
-        ? ExactArgNames<GenericType[Key], Constraint[Key]>
-        : never
-    }
 
 type $Atomic = booking_channel_constraint | booking_channel_enum | booking_channel_select_column | booking_channel_update_column | booking_constraint | booking_select_column | booking_status_enum | booking_update_column | bookingStatus_constraint | bookingStatus_select_column | bookingStatus_update_column | classification_constraint | classification_enum | classification_select_column | classification_update_column | connection_constraint | connection_select_column | connection_update_column | currency_constraint | currency_enum | currency_select_column | currency_update_column | entity_constraint | entity_select_column | entity_status_enum | entity_update_column | entityStatus_constraint | entityStatus_select_column | entityStatus_update_column | integration_constraint | integration_select_column | integration_type_enum | integration_update_column | integrationType_constraint | integrationType_select_column | integrationType_update_column | issue_constraint | issue_select_column | issue_update_column | job_constraint | job_method_enum | job_select_column | job_status_enum | job_update_column | jobMethod_constraint | jobMethod_select_column | jobMethod_update_column | jobStatus_constraint | jobStatus_select_column | jobStatus_update_column | line_constraint | line_select_column | line_update_column | metric_constraint | metric_select_column | metric_update_column | normalized_type_enum | normalizedType_constraint | normalizedType_select_column | normalizedType_update_column | order_by | payment_constraint | payment_select_column | payment_status_enum | payment_update_column | paymentStatus_constraint | paymentStatus_select_column | paymentStatus_update_column | paymentType_constraint | paymentType_select_column | paymentType_update_column | subclassification_constraint | subclassification_enum | subclassification_select_column | subclassification_update_column | tag_constraint | tag_select_column | tag_update_column | team_constraint | team_select_column | team_update_column | teamUser_constraint | teamUser_select_column | teamUser_update_column | unit_constraint | unit_select_column | unit_update_column | user_constraint | user_select_column | user_status_enum | user_update_column | userStatus_constraint | userStatus_select_column | userStatus_update_column | webhook_constraint | webhook_select_column | webhook_update_column | number | string | boolean | null | undefined
 
@@ -33431,4 +33403,24 @@ types2: "_text",
 url: "String"
   }
 }
+
+
+// We use a dummy conditional type that involves GenericType to defer the compiler's inference of
+// any possible variables nested in this type. This addresses a problem where variables are
+// inferred with type unknown
+type ExactArgNames<GenericType, Constraint> = GenericType extends never
+  ? never
+  : GenericType extends Variable<any, any, any>
+  ? GenericType
+  : [Constraint] extends [$Atomic | CustomScalar<any>]
+  ? GenericType
+  : Constraint extends ReadonlyArray<infer InnerConstraint>
+  ? GenericType extends ReadonlyArray<infer Inner>
+    ? ReadonlyArray<ExactArgNames<Inner, InnerConstraint>>
+    : GenericType
+  : GenericType & {
+      [Key in keyof GenericType]: Key extends keyof Constraint
+        ? ExactArgNames<GenericType[Key], Constraint[Key]>
+        : never
+    }
 

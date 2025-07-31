@@ -1,10 +1,7 @@
-// The ignore pragmas are needed for the parcel types transformer, which
-// doesn't understand the fs module.
-
-//@ts-ignore
 import * as fs from 'fs'
 
-export const Preamble = fs
-  //@ts-ignore
-  .readFileSync(__dirname + '/preamble.src.ts', 'utf8')
-  .split('/* BEGIN PREAMBLE */')[1]!
+const preambleContent = fs.readFileSync(__dirname + '/preamble.src.ts', 'utf8')
+
+export const Preamble = preambleContent.split('/* BEGIN PREAMBLE */')[1]!.split('/* BEGIN EXACTARGNAMES */')[0]!
+
+export const ExactArgNames = preambleContent.split('/* BEGIN EXACTARGNAMES */')[1]!.split('/* END EXACTARGNAMES */')[0]!

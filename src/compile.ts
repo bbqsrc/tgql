@@ -1,5 +1,5 @@
 import * as gq from 'graphql'
-import { Preamble } from './preamble.lib'
+import { Preamble, ExactArgNames } from './preamble.lib'
 import { postamble } from './postamble'
 import { UserFacingError } from './user-error'
 import { getScalars } from './scalars'
@@ -26,6 +26,7 @@ export function compileSchemaDefinitions(
   options: Options = {}
 ) {
   let outputScript = ''
+  let usesExactArgNames = false
 
   function write(s: string) {
     outputScript += s + '\n'
@@ -242,6 +243,7 @@ export class ${className} extends $Base<"${className}"> {
         ${(field.arguments ?? []).map(arg => printInputField(arg)).join('\n')},
       }`
       methodArgs.push(`args: ExactArgNames<Args, ${argsType}>`)
+      usesExactArgNames = true
     }
     if (gqlTypeHasSelector(fieldTypeName)) {
       hasSelector = true
@@ -497,6 +499,10 @@ export enum ${def.name.value} {
       schemaDefinitions.filter(def => def.kind === gq.Kind.INPUT_OBJECT_TYPE_DEFINITION) as any[]
     )
   )
+
+  if (usesExactArgNames) {
+    write(ExactArgNames)
+  }
 
   return outputScript
 }
