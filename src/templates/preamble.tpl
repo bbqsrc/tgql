@@ -1,14 +1,14 @@
-type $Atomic = string | number | boolean | null | undefined
-let $InputTypes: { [key: string]: { [key: string]: string } } = {}
-let $Enums = new Set()
-
 /* BEGIN PREAMBLE */
-import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
-import { gql } from 'graphql-tag'
+type $Atomic = string | number | boolean | null | undefined
+const $InputTypes: { [key: string]: { [key: string]: string } } = {}
+const $Enums = new Set()
 
-const VariableName = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd8'
+import type { TypedDocumentNode } from "npm:@graphql-typed-document-node/core"
+import { gql } from "npm:graphql-tag"
 
-const ScalarBrandingField = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd9'
+const VariableName = " $1fcbcbff-3e78-462f-b45c-668a3e09bfd8"
+
+const ScalarBrandingField = " $1fcbcbff-3e78-462f-b45c-668a3e09bfd9"
 
 type CustomScalar<T> = { [ScalarBrandingField]: T }
 
@@ -27,12 +27,9 @@ type ArrayInput<I> = [I] extends [$Atomic] ? never : ReadonlyArray<VariabledInpu
 
 type AllowedInlineScalars<S> = S extends string | number ? S : never
 
-export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S>
-  ? S
-  : T extends ReadonlyArray<infer I>
-  ? ReadonlyArray<UnwrapCustomScalars<I>>
-  : T extends Record<string, any>
-  ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
+export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S> ? S
+  : T extends ReadonlyArray<infer I> ? ReadonlyArray<UnwrapCustomScalars<I>>
+  : T extends Record<string, any> ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
   : T
 
 type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str, any>
@@ -40,27 +37,21 @@ type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalar
 // the array wrapper prevents distributive conditional types
 // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
 type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
-  ? // scalars only support variable input
-    Variable<S | null | undefined, any, any> | AllowedInlineScalars<S> | null | undefined
-  : [T] extends [CustomScalar<infer S>]
-  ? Variable<S, any, any> | AllowedInlineScalars<S>
-  : [T] extends [$Atomic]
-  ? Variable<T, any, any> | T
-  : T extends ReadonlyArray<infer I>
-  ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
-  : T extends Record<string, any> | null | undefined
-  ?
+  // scalars only support variable input
+  ? Variable<S | null | undefined, any, any> | AllowedInlineScalars<S> | null | undefined
+  : [T] extends [CustomScalar<infer S>] ? Variable<S, any, any> | AllowedInlineScalars<S>
+  : [T] extends [$Atomic] ? Variable<T, any, any> | T
+  : T extends ReadonlyArray<infer I> ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
+  : T extends Record<string, any> | null | undefined ?
       | VariableWithoutScalars<T | null | undefined, any>
       | null
       | undefined
       | { [K in keyof T]: VariabledInput<T[K]> }
       | T
-  : T extends Record<string, any>
-  ? VariableWithoutScalars<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
+  : T extends Record<string, any> ? VariableWithoutScalars<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
   : never
 
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
-  ? I
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I
   : never
 
 /**
@@ -88,7 +79,7 @@ type SelectOptions = {
 }
 
 class $Field<Name extends string, Type, Vars = {}> {
-  public kind: 'field' = 'field'
+  public kind: "field" = "field"
   public type!: Type
 
   public vars!: Vars
@@ -108,7 +99,7 @@ class $Base<Name extends string> {
 
   protected $_select<Key extends string>(
     name: Key,
-    options: SelectOptions = {}
+    options: SelectOptions = {},
   ): $Field<Key, any, any> {
     return new $Field(name, options)
   }
@@ -123,7 +114,7 @@ class $Union<T, Name extends string> extends $Base<Name> {
 
   $on<Type extends keyof T, Sel extends Selection<T[Type]>>(
     alternative: Type,
-    selectorFn: (selector: T[Type]) => [...Sel]
+    selectorFn: (selector: T[Type]) => [...Sel],
   ): $UnionSelection<GetOutput<Sel>, GetVariables<Sel>> {
     const selection = selectorFn(new this.selectorClasses[alternative]())
 
@@ -139,7 +130,7 @@ class $Interface<T, Name extends string> extends $Base<Name> {
   }
   $on<Type extends keyof T, Sel extends Selection<T[Type]>>(
     alternative: Type,
-    selectorFn: (selector: T[Type]) => [...Sel]
+    selectorFn: (selector: T[Type]) => [...Sel],
   ): $UnionSelection<GetOutput<Sel>, GetVariables<Sel>> {
     const selection = selectorFn(new this.selectorClasses[alternative]())
 
@@ -148,7 +139,7 @@ class $Interface<T, Name extends string> extends $Base<Name> {
 }
 
 class $UnionSelection<T, Vars> {
-  public kind: 'union' = 'union'
+  public kind: "union" = "union"
   protected vars!: Vars
   constructor(public alternativeName: string, public alternativeSelection: Selection<T>) {}
 }
@@ -162,51 +153,45 @@ type Simplify<T> = { [K in keyof T]: T[K] } & {}
 type LeafType<T> = T extends CustomScalar<infer S> ? S : T
 
 export type GetOutput<X extends Selection<any>> = Simplify<
-  UnionToIntersection<
+  & UnionToIntersection<
     {
-      [I in keyof X]: X[I] extends $Field<infer Name, infer Type, any>
-        ? { [K in Name]: LeafType<Type> }
+      [I in keyof X]: X[I] extends $Field<infer Name, infer Type, any> ? { [K in Name]: LeafType<Type> }
         : never
     }[keyof X & number]
-  > &
-    NeverNever<
-      {
-        [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type> : never
-      }[keyof X & number]
-    >
+  >
+  & NeverNever<
+    {
+      [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type> : never
+    }[keyof X & number]
+  >
 >
 
-type PossiblyOptionalVar<VName extends string, VType> = null extends VType
-  ? { [key in VName]?: VType }
+type PossiblyOptionalVar<VName extends string, VType> = null extends VType ? { [key in VName]?: VType }
   : { [key in VName]: VType }
 
 type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer VName, any>
   ? PossiblyOptionalVar<VName, VType>
-  : // Avoid generating an index signature for possibly undefined or null inputs.
+  // Avoid generating an index signature for possibly undefined or null inputs.
   // The compiler incorrectly infers null or undefined, and we must force access the Inputs
   // type to convince the compiler its "never", while still retaining {} as the result
   // for null and undefined cases
   // Works around issue 79
-  Inputs extends null | undefined
-  ? { [K in keyof Inputs]: Inputs[K] }
-  : Inputs extends $Atomic
-  ? {}
-  : Inputs extends any[] | readonly any[]
-  ? UnionToIntersection<
+  : Inputs extends null | undefined ? { [K in keyof Inputs]: Inputs[K] }
+  : Inputs extends $Atomic ? {}
+  : Inputs extends any[] | readonly any[] ? UnionToIntersection<
       { [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs & number]
     >
   : UnionToIntersection<{ [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs]>
 
-export type GetVariables<Sel extends Selection<any>, ExtraVars = {}> = UnionToIntersection<
-  {
-    [I in keyof Sel]: Sel[I] extends $Field<any, any, infer Vars>
-      ? Vars
-      : Sel[I] extends $UnionSelection<any, infer Vars>
-      ? Vars
-      : never
-  }[keyof Sel & number]
-> &
-  ExtractInputVariables<ExtraVars>
+export type GetVariables<Sel extends Selection<any>, ExtraVars = {}> =
+  & UnionToIntersection<
+    {
+      [I in keyof Sel]: Sel[I] extends $Field<any, any, infer Vars> ? Vars
+        : Sel[I] extends $UnionSelection<any, infer Vars> ? Vars
+        : never
+    }[keyof Sel & number]
+  >
+  & ExtractInputVariables<ExtraVars>
 
 type ArgVarType = {
   type: string
@@ -224,19 +209,19 @@ const arrRegex = /\[(.*?)\]/
  * @returns
  */
 function getArgVarType(input: string): ArgVarType {
-  const array = input.includes('[')
+  const array = input.includes("[")
     ? {
-        isRequired: input.endsWith('!'),
-      }
+      isRequired: input.endsWith("!"),
+    }
     : null
 
   const type = array ? arrRegex.exec(input)![1]! : input
-  const isRequired = type.endsWith('!')
+  const isRequired = type.endsWith("!")
 
   return {
     array,
     isRequired: isRequired,
-    type: type.replace('!', ''),
+    type: type.replace("!", ""),
   }
 }
 
@@ -246,30 +231,32 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
   function stringifyArgs(
     args: any,
     argTypes: { [key: string]: string },
-    argVarType?: ArgVarType
+    argVarType?: ArgVarType,
   ): string {
     switch (typeof args) {
-      case 'string': {
+      case "string": {
         const cleanType = argVarType!.type
         if ($Enums.has(cleanType!)) return args
         else return JSON.stringify(args)
       }
-      case 'number':
-      case 'boolean':
+      case "number":
+      case "boolean":
         return JSON.stringify(args)
       default: {
-        if (args == null) return 'null'
+        if (args == null) return "null"
         if (VariableName in (args as any)) {
-          if (!argVarType)
-            throw new globalThis.Error('Cannot use variabe as sole unnamed field argument')
+          if (!argVarType) {
+            throw new globalThis.Error("Cannot use variabe as sole unnamed field argument")
+          }
           const variable = args as Variable<any, any, any>
           const argVarName = variable[VariableName]
           variables.set(argVarName, { type: argVarType, variable: variable })
-          return '$' + argVarName
+          return "$" + argVarName
         }
-        if (Array.isArray(args))
-          return '[' + args.map(arg => stringifyArgs(arg, argTypes, argVarType)).join(',') + ']'
-        const wrapped = (content: string) => (argVarType ? '{' + content + '}' : content)
+        if (Array.isArray(args)) {
+          return "[" + args.map((arg) => stringifyArgs(arg, argTypes, argVarType)).join(",") + "]"
+        }
+        const wrapped = (content: string) => (argVarType ? "{" + content + "}" : content)
         return wrapped(
           Array.from(Object.entries(args))
             .map(([key, val]) => {
@@ -277,74 +264,73 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
               if (!argTypeForKey) {
                 throw new globalThis.Error(`Argument type for ${key} not found`)
               }
-              const cleanType = argTypeForKey.replace('[', '').replace(']', '').replace(/!/g, '')
+              const cleanType = argTypeForKey.replace("[", "").replace("]", "").replace(/!/g, "")
               return (
                 key +
-                ':' +
+                ":" +
                 stringifyArgs(val, $InputTypes[cleanType]!, getArgVarType(argTypeForKey))
               )
             })
-            .join(',')
+            .join(","),
         )
       }
     }
   }
 
   function extractTextAndVars(field: $Field<any, any, any> | $UnionSelection<any, any>) {
-    if (field.kind === 'field') {
+    if (field.kind === "field") {
       let retVal = field.name
-      if (field.alias) retVal = field.alias + ':' + retVal
+      if (field.alias) retVal = field.alias + ":" + retVal
       const args = field.options.args,
         argTypes = field.options.argTypes
       if (args && Object.keys(args).length > 0) {
-        retVal += '(' + stringifyArgs(args, argTypes!) + ')'
+        retVal += "(" + stringifyArgs(args, argTypes!) + ")"
       }
       let sel = field.options.selection
       if (sel) {
-        retVal += '{'
+        retVal += "{"
         for (let subField of sel) {
           retVal += extractTextAndVars(subField)
         }
-        retVal += '}'
+        retVal += "}"
       }
-      return retVal + ' '
-    } else if (field.kind === 'union') {
-      let retVal = '... on ' + field.alternativeName + ' {'
+      return retVal + " "
+    } else if (field.kind === "union") {
+      let retVal = "... on " + field.alternativeName + " {"
       for (let subField of field.alternativeSelection) {
         retVal += extractTextAndVars(subField)
       }
-      retVal += '}'
+      retVal += "}"
 
-      return retVal + ' '
+      return retVal + " "
     } else {
-      throw new globalThis.Error('Uknown field kind')
+      throw new globalThis.Error("Uknown field kind")
     }
   }
 
   const queryRaw = extractTextAndVars(field)!
 
-  const queryBody = queryRaw.substring(queryRaw.indexOf('{'))
+  const queryBody = queryRaw.substring(queryRaw.indexOf("{"))
 
   const varList = Array.from(variables.entries())
   let ret = prefix
   if (varList.length) {
-    ret +=
-      '(' +
+    ret += "(" +
       varList
         .map(([name, { type: kind, variable }]) => {
-          let type = kind.array ? '[' : ''
+          let type = kind.array ? "[" : ""
           type += kind.type
-          if (kind.isRequired) type += '!'
-          if (kind.array) type += kind.array.isRequired ? ']!' : ']'
+          if (kind.isRequired) type += "!"
+          if (kind.array) type += kind.array.isRequired ? "]!" : "]"
 
-          if (!type.endsWith('!') && variable.isRequired === true) {
-            type += '!'
+          if (!type.endsWith("!") && variable.isRequired === true) {
+            type += "!"
           }
 
-          return '$' + name + ':' + type
+          return "$" + name + ":" + type
         })
-        .join(',') +
-      ')'
+        .join(",") +
+      ")"
   }
   ret += queryBody
 
@@ -353,48 +339,39 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
 
 export type OutputTypeOf<T> = T extends $Interface<infer Subtypes, any>
   ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
-  : T extends $Union<infer Subtypes, any>
-  ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
-  : T extends $Base<any>
-  ? { [K in keyof T]?: OutputTypeOf<T[K]> }
-  : [T] extends [$Field<any, infer FieldType, any>]
-  ? FieldType
-  : [T] extends [(selFn: (arg: infer Inner) => any) => any]
-  ? OutputTypeOf<Inner>
-  : [T] extends [(args: any, selFn: (arg: infer Inner) => any) => any]
-  ? OutputTypeOf<Inner>
+  : T extends $Union<infer Subtypes, any> ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
+  : T extends $Base<any> ? { [K in keyof T]?: OutputTypeOf<T[K]> }
+  : [T] extends [$Field<any, infer FieldType, any>] ? FieldType
+  : [T] extends [(selFn: (arg: infer Inner) => any) => any] ? OutputTypeOf<Inner>
+  : [T] extends [(args: any, selFn: (arg: infer Inner) => any) => any] ? OutputTypeOf<Inner>
   : never
 
 export type QueryOutputType<T extends TypedDocumentNode<any>> = T extends TypedDocumentNode<
   infer Out
->
-  ? Out
+> ? Out
   : never
 
 export type QueryInputType<T extends TypedDocumentNode<any>> = T extends TypedDocumentNode<
   any,
   infer In
->
-  ? In
+> ? In
   : never
 
 export function fragment<T, Sel extends Selection<T>>(
   GQLType: { new (): T },
-  selectFn: (selector: T) => [...Sel]
+  selectFn: (selector: T) => [...Sel],
 ) {
   return selectFn(new GQLType())
 }
 
-type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends () => infer R
-  ? R
+type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends () => infer R ? R
   : never
 
 // TS4.0+
 type Push<T extends any[], V> = [...T, V]
 
 // TS4.1+
-type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = true extends N
-  ? []
+type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = true extends N ? []
   : Push<TuplifyUnion<Exclude<T, L>>, L>
 
 type AllFieldProperties<I> = {
@@ -408,9 +385,8 @@ export type AllFields<T> = TuplifyUnion<ValueOf<AllFieldProperties<T>>>
 export function all<I extends $Base<any>>(instance: I) {
   const prototype = Object.getPrototypeOf(instance)
   const allFields = Object.getOwnPropertyNames(prototype)
-    .map(k => prototype[k])
-    .filter(o => o?.kind === 'field')
-    .map(o => o?.name) as (keyof typeof instance)[]
-  return allFields.map(fieldName => instance?.[fieldName]) as any as AllFields<I>
+    .map((k) => prototype[k])
+    .filter((o) => o?.kind === "field")
+    .map((o) => o?.name) as (keyof typeof instance)[]
+  return allFields.map((fieldName) => instance?.[fieldName]) as any as AllFields<I>
 }
-
