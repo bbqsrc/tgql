@@ -57,13 +57,17 @@ jobs:
       id: version
       shell: bash
       run: |
-        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-          VERSION="${GITHUB_REF#refs/tags/}"
-        else
+        VERSION="${GITHUB_REF#refs/tags/}"
+        if [[ "$GITHUB_REF" != refs/tags/* ]]; then
           VERSION=dev
         fi
+        EXT=""
+        if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+          EXT=".exe"
+        fi
+        ARTIFACT_NAME="tgql-${{ matrix.target }}-$VERSION$EXT"
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "ARTIFACT_NAME=${{ format('tgql-{0}', matrix.target) }}-$VERSION" >> $GITHUB_OUTPUT
+        echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
     
     - name: Setup Deno
       uses: denoland/setup-deno@v2
