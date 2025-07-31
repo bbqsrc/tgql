@@ -169,7 +169,7 @@ deno task test:watch     # Run tests in watch mode
 ### Installing locally
 
 ```bash
-deno install --config deno.json --global --unstable-raw-imports src/cli.ts -n tgql
+deno task install
 ```
 
 It can also be built as a self-contained binary:
