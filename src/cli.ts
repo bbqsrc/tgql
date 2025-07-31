@@ -1,50 +1,92 @@
-#!/usr/bin/env -S deno run --allow-read --allow-write --allow-net
-
-import yargs from 'yargs'
+import { parseArgs } from '@std/cli'
+import denoConfig from '../deno.json' with { type: 'json' }
 import { compile } from './compile-api.ts'
+import type { Args } from './compile-options.ts'
 import { UserFacingError } from './user-error.ts'
 
+const USAGE = `Compiles a GraphQL schema to a TypeScript API
+
+Usage: tgql [options] <schema>
+
+Arguments:
+  schema                  Path (or glob) to local schema file or URL to a server with introspection
+
+Options:
+  --output, -o <file>     The output TypeScript file (required)
+  --header <header>       Additional headers to send to the server if passing a server URL (can be repeated)
+  --bearer <token>        Bearer token to add as Authorization header when fetching schema from URL
+  --scalar, -s <mapping>  Map scalars to TypeScript types. Format: ScalarName=TypeName or ScalarName=./path/to/file#ExportName (can be repeated)
+  --include-typename      Include the __typename field in all objects
+  --help, -h              Show this help message
+  --version, -v           Show version number
+
+Examples:
+  tgql schema.graphql -o api.ts
+  tgql https://api.example.com/graphql -o api.ts --bearer mytoken123
+  tgql schema.graphql -o api.ts -s Int32=number -s Int64=bigint --include-typename
+  tgql schema.graphql -o api.ts -s CustomType=./types#CustomType`
+
+function showHelp() {
+  console.log(USAGE)
+}
+
+function showVersion() {
+  console.log(denoConfig.version)
+}
+
 async function main() {
-  let args = await yargs(Deno.args).usage('Compiles a GraphQL schema to a TypeScript API').options({
-    schema: {
-      type: 'array',
-      string: true,
-      describe: 'Path (or glob) to local schema file or URL to a server with introspection',
-      required: true,
+  const parsed = parseArgs(Deno.args, {
+    string: ['output', 'header', 'bearer', 'scalar'],
+    boolean: ['include-typename', 'help', 'version'],
+    collect: ['header', 'scalar'],
+    default: {
+      'include-typename': false,
+      header: [],
+      scalar: []
     },
-    headers: {
-      type: 'array',
-      describe: 'Additional headers to send to the server if passing a server URL',
-      default: [] as string[],
-    },
-    bearer: {
-      type: 'string',
-      describe: 'Bearer token to add as Authorization header when fetching schema from URL',
-      required: false,
-    },
-    schemaExtensions: {
-      type: 'array',
-      describe: 'Additional schemas that extend the base',
-      required: false,
-    },
-    output: {
-      type: 'string',
-      describe: 'The output TypeScript file',
-      required: true,
-    },
-    scalar: {
-      type: 'array',
-      string: true,
-      describe:
-        'List of scalars in the format ScalarName=[./path/to/scalardefinition#ScalarExport]',
-    },
-    includeTypename: {
-      type: 'boolean',
-      boolean: true,
-      default: false,
-      describe: 'Include the __typename field in all objects',
-    },
-  }).argv
+    alias: {
+      h: 'help',
+      v: 'version',
+      o: 'output',
+      s: 'scalar'
+    }
+  })
+
+  if (parsed.help) {
+    showHelp()
+    Deno.exit(0)
+  }
+
+  if (parsed.version) {
+    showVersion()
+    Deno.exit(0)
+  }
+
+  // Get schema from positional arguments
+  const schema = parsed._[0]
+  
+  // Validate required arguments
+  if (!schema) {
+    console.error('Error: schema argument is required')
+    console.error('Use --help for usage information')
+    Deno.exit(1)
+  }
+
+  if (!parsed.output) {
+    console.error('Error: --output is required')
+    console.error('Use --help for usage information')
+    Deno.exit(1)
+  }
+
+  // Convert parsed args to the expected Args format
+  const args: Args = {
+    schema: [schema as string],
+    output: parsed.output as string,
+    headers: Array.isArray(parsed.header) ? parsed.header : (parsed.header ? [parsed.header] : []),
+    bearer: parsed.bearer as string | undefined,
+    scalar: Array.isArray(parsed.scalar) ? parsed.scalar : (parsed.scalar ? [parsed.scalar] : []),
+    includeTypename: parsed['include-typename'] as boolean
+  }
 
   try {
     await compile(args)
@@ -58,4 +100,4 @@ async function main() {
   }
 }
 
-main()
+await main()

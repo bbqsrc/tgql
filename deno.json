@@ -14,10 +14,10 @@
     "test": "deno test --parallel --unstable-raw-imports --allow-read --allow-net --allow-env --allow-write --allow-run --coverage",
     "test:watch": "deno test --unstable-raw-imports --allow-read --allow-net --allow-env --allow-write --allow-run --watch",
     "regenerate": "deno task regenerate:big-schema && deno task regenerate:small-schema && deno task regenerate:sw-schema && deno task regenerate:country-schema",
-    "regenerate:big-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-net --allow-env src/cli.ts --schema examples/x.graphql --output examples/x.ts",
-    "regenerate:small-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-net --allow-env src/cli.ts --schema examples/zeus.graphql --output examples/zeus.ts",
-    "regenerate:sw-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-net --allow-env src/cli.ts --schema examples/schema-sw.graphql --output examples/api-sw.ts",
-    "regenerate:country-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-net --allow-env src/cli.ts --schema examples/countries-schema.graphql --output examples/countries-schema.ts"
+    "regenerate:big-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-run --allow-net --allow-env src/cli.ts examples/x.graphql --output examples/x.ts",
+    "regenerate:small-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-run --allow-net --allow-env src/cli.ts examples/zeus.graphql --output examples/zeus.ts",
+    "regenerate:sw-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-run --allow-net --allow-env src/cli.ts examples/schema-sw.graphql --output examples/api-sw.ts",
+    "regenerate:country-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-run --allow-net --allow-env src/cli.ts examples/countries-schema.graphql --output examples/countries-schema.ts"
   },
   "compilerOptions": {
     "lib": ["dom", "deno.ns"],
@@ -47,11 +47,10 @@
   "imports": {
     "@graphql-typed-document-node/core": "npm:@graphql-typed-document-node/core@^3.2.0",
     "@std/assert": "jsr:@std/assert@^1.0.13",
+    "@std/cli": "jsr:@std/cli@^1.0.10",
     "@std/fs": "jsr:@std/fs@^1.0.19",
     "@std/path": "jsr:@std/path@^1.1.1",
     "graphql": "npm:graphql@^16.11.0",
-    "graphql-tag": "npm:graphql-tag@^2.12.6",
-    "undici": "npm:undici@^7.13.0",
-    "yargs": "npm:yargs@^18.0.0"
+    "graphql-tag": "npm:graphql-tag@^2.12.6"
   }
 }

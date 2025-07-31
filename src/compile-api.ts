@@ -1,6 +1,5 @@
 import { expandGlob } from "@std/fs";
 import * as gq from 'graphql';
-import { request } from 'undici';
 
 import type { Args, Options } from './compile-options.ts';
 import { compileSchemaDefinitions } from './compile.ts';
@@ -52,22 +51,31 @@ async function fetchOrRead(args: Args) {
 
   for (let schemaSpec of schemas) {
     if (UrlRegex.test(schemaSpec)) {
-      let headers = args.headers?.flatMap(h => h.split(':')) ?? []
-      
-      // Add Authorization header if bearer token is provided
-      if (args.bearer) {
-        headers.push('authorization', `Bearer ${args.bearer}`)
+      const headers = new Headers();
+
+      headers.set('accept', 'application/json');
+
+      for (const header of args.headers || []) {
+        const [key, value] = header.split(':').map(s => s.trim());
+        if (key && value) {
+          headers.append(key, value);
+        }
       }
 
-      let res = await request(schemaSpec, {
+      // Add Authorization header if bearer token is provided
+      if (args.bearer) {
+        headers.set('authorization', `Bearer ${args.bearer}`)
+      }
+
+      let res = await fetch(schemaSpec, {
         method: 'POST',
-        headers: [...headers, 'content-type', 'application/json'],
+        headers,
         body: JSON.stringify({
           operationName: 'IntrospectionQuery',
           query: gq.getIntrospectionQuery(),
         }),
       })
-      let body: any = await res.body.json()
+      let body: any = await res.json()
       if (body.errors) {
         throw new UserFacingError(
           `Error introspecting schema from ${args.schema}: ${JSON.stringify(body.errors, null, 2)}`
