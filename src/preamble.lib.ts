@@ -1,8 +1,5 @@
-import { dirname, join } from "@std/path";
+import preambleTpl from './templates/preamble.tpl' with { type: "text" };
+import exactArgNamesTpl from './templates/exact-arg-names.tpl' with { type: "text" };
 
-const currentDir = dirname(new URL(import.meta.url).pathname);
-const preambleContent = Deno.readTextFileSync(join(currentDir, 'templates/preamble.tpl'));
-
-export const Preamble = preambleContent.split('/* BEGIN PREAMBLE */')[1]!;
-
-export const ExactArgNames = Deno.readTextFileSync(join(currentDir, 'templates/exact-arg-names.tpl'));
+export const Preamble = preambleTpl.split('/* BEGIN PREAMBLE */')[1]!;
+export const ExactArgNames = exactArgNamesTpl
