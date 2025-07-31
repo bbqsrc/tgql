@@ -1,6 +1,2 @@
-/node_modules
-/dist
-/accidental-build
-/.nyc_output
-/.parcel-cache
 tgql
+coverage/

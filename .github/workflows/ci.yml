@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Deno
+      uses: denoland/setup-deno@v2
+      with:
+        deno-version: v2.x
+
+    - name: Verify Deno installation
+      run: deno --version
+
+    - name: Cache Deno dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/deno
+          ~/.deno
+        key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-deno-
+
+    - name: Run tests
+      run: deno task test
+
+    - name: Build
+      run: deno task build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: tgql-binary-${{ runner.os }}-${{ github.sha }}
+        path: tgql
+        retention-days: 30
+
+  build-matrix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Deno
+      uses: denoland/setup-deno@v2
+      with:
+        deno-version: v2.x
+
+    - name: Cache Deno dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/deno
+          ~/.deno
+        key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-deno-
+
+    - name: Build for ${{ matrix.os }}
+      run: deno task build
+
+    - name: Create distribution directory and package (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        mkdir -p tgql
+        mv tgql tgql/
+        tar -czf tgql-linux.tgz tgql
+        rm -rf tgql
+
+    - name: Create distribution directory and package (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        mkdir -p tgql
+        mv tgql tgql/
+        tar -czf tgql-macos.tgz tgql
+        rm -rf tgql
+
+    - name: Create distribution directory and package (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        mkdir tgql
+        Move-Item "tgql.exe" "tgql/"
+        7z a -tzip -mx=9 tgql-windows.zip tgql
+        Remove-Item -Recurse -Force tgql
+      shell: pwsh
+
+    - name: Upload platform-specific artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: tgql-${{ runner.os }}-${{ github.sha }}
+        path: tgql-*.*
+        retention-days: 30
