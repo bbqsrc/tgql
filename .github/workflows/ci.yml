@@ -101,4 +101,3 @@ jobs:
         compression-level: 0
         name: ${{ steps.version.outputs.ARTIFACT_NAME }}
         path: ${{ steps.version.outputs.ARTIFACT_NAME }}.*
-        retention-days: 30
