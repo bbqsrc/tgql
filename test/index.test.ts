@@ -106,11 +106,17 @@ for (const schema of schemas) {
       // });
     }
 
-    const badExamples = await globSync(`./examples/*-${schemaCoreName}.bad.ts`, __dirname);
+    const badExamples = await globSync(`./examples/*-${schemaCoreName}.ts.bad`, __dirname);
+    const tmpDir = Deno.makeTempDirSync({ prefix: 'bad-examples-' });
+
     for (const example of badExamples) {
+      // Copy the bad example to a temporary directory
+      const tmpExamplePath = join(tmpDir, basename(example));
+      Deno.copyFileSync(example, tmpExamplePath);
+
       const exampleName = basename(example);
       await t.step(`compile fails with example ${exampleName}`, () => {
-        const res = compileTs(example);
+        const res = compileTs(tmpExamplePath);
         if (res.code === 0) {
           throw new Error('bad example compiled with no errors');
         }

@@ -1,5 +1,5 @@
-import { query, $ } from './zeus.graphql.api'
-import { verify } from './verify'
+import { verify } from './verify.ts'
+import { $, query } from './zeus.graphql.api.ts'
 
 let nestedVariable = query(q => [
   q.drawCard(c => [c.attack({ cardID: $('cardID') }, s => [s.name])]),

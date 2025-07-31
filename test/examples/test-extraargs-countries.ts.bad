@@ -1,0 +1,6 @@
+import { $$, query } from './countries.graphql.api.ts'
+
+query('MyName', q => [q.continent({
+    code: $$('test'),
+    extraArg: 1
+}, c => [c.code, c.name])])

@@ -1,4 +1,4 @@
-import { mutation, $ } from './scalars.graphql.api.ts'
+import { $, mutation } from './scalars.graphql.api.ts'
 import { verify } from './verify.ts'
 
 let createScalarMutation = mutation(m => [
@@ -32,7 +32,11 @@ export default [
     schemaPath: 'scalars.graphql',
     useOutputType: oType => {
       // val should be a string as JSONObject is {[key: string]: string}
-      oType.createObject?.content?.key!.substring(10)
+      const typedOutput = oType as Record<string, unknown>
+      const createObject = typedOutput.createObject as Record<string, unknown> | undefined
+      const content = createObject?.content as Record<string, unknown> | undefined
+      const key = content?.key as string | undefined
+      return key?.substring(10)
     },
   }),
   verify({

@@ -19,10 +19,14 @@
     "regenerate:sw-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-run --allow-net --allow-env src/cli.ts examples/schema-sw.graphql --output examples/api-sw.ts",
     "regenerate:country-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-run --allow-net --allow-env src/cli.ts examples/countries-schema.graphql --output examples/countries-schema.ts"
   },
+  "exclude": ["*.bad.ts"],
   "compilerOptions": {
     "lib": ["dom", "deno.ns"],
     "strict": true,
     "noImplicitAny": false
+  },
+  "lint" : {
+    "exclude": ["test/*.bad.ts"]
   },
   "test": {
     "include": ["src/**/*.test.ts", "test/**/*.test.ts"]

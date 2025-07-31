@@ -1,4 +1,4 @@
-import { query, $, type QueryOutputType, type OutputTypeOf, type Node } from './sw.graphql.api.ts'
+import { $, query, type Node, type OutputTypeOf, type QueryOutputType } from './sw.graphql.api.ts'
 import { verify } from './verify.ts'
 
 let planetQuery = query(q => [
@@ -62,7 +62,11 @@ type PersonOrPlanet = QueryOutputType<typeof multiChoiceQuery>
 declare let v: PersonOrPlanet
 
 export function test() {
-  let personOrPlanet = v.node!
+  const typedV = v as PersonOrPlanet & Record<string, unknown>
+  const personOrPlanet = typedV.node as NodeType | null | undefined
+  if (!personOrPlanet) {
+    return
+  }
   switch (personOrPlanet.__typename) {
     case 'Person':
       return personOrPlanet.birthYear

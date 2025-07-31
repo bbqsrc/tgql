@@ -1,4 +1,4 @@
-import { $$, query } from './countries.graphql.api'
+import { $$, query } from './countries.graphql.api.ts'
 
 query('MyName', q => [
   // multi-arg

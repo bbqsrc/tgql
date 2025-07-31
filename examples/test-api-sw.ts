@@ -1,4 +1,4 @@
-import { query, $ } from './api-sw'
+import { $, query } from './api-sw.ts'
 
 const planetQuery = query(q => [
   q.planet({ id: $('planet_id') }, p => [

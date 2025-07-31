@@ -1,7 +1,7 @@
 // Todo: add big query tests
 
-import { verify } from './verify'
-import { query, $ } from './x.graphql.api'
+import { verify } from './verify.ts'
+import { $, query } from './x.graphql.api.ts'
 
 // cannot use $ if array consistens of atomic types
 let bookingsBetween = query(q => [

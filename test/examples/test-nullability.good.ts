@@ -1,7 +1,9 @@
-import { query } from './nullability.graphql.api.ts'
+import { query, type QueryOutputType } from './nullability.graphql.api.ts'
 import { verify } from './verify.ts'
 
 const basicQuery = query(q => [q.posts(p => [p.id, p.author(a => [a.name])])])
+
+type BasicQueryOutput = QueryOutputType<typeof basicQuery>
 
 export default [
   verify({
@@ -9,20 +11,21 @@ export default [
     schemaPath: 'nullability.graphql',
     variables: {},
     useOutputType: output => {
-      let posts = output.posts
-      if (posts === null) {
+      const typedOutput = output as BasicQueryOutput & Record<string, unknown>
+      const posts = typedOutput.posts
+      if (posts === null || posts === undefined) {
         return
       }
-      let firstPost = posts[0]
+      const firstPost = posts[0]
       // Array access can be undefined.
       if (firstPost === undefined) {
         return
       }
-      let author = firstPost.author
+      const author = firstPost.author
       if (author === null) {
         return
       }
-      let name = author.name
+      const name = author.name
       return name + 'test'
     },
   }),

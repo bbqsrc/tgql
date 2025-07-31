@@ -1,5 +1,5 @@
-import { mutation, $, SpecialSkills } from './zeus.graphql.api'
-import { verify } from './verify'
+import { verify } from './verify.ts'
+import { $, mutation, SpecialSkills } from './zeus.graphql.api.ts'
 
 const tm = mutation(m => [
   m.addCard(
