@@ -7,11 +7,7 @@ const ScalarBrandingField = " $1fcbcbff-3e78-462f-b45c-668a3e09bfd9"
 
 type CustomScalar<T> = { [ScalarBrandingField]: T }
 
-class Variable<
-  T,
-  Name extends string,
-  IsRequired extends boolean | undefined = undefined,
-> {
+class Variable<T, Name extends string, IsRequired extends boolean | undefined = undefined> {
   private [VariableName]: Name
   public readonly isRequired?: IsRequired
   declare private _typeMarker: T
@@ -22,8 +18,7 @@ class Variable<
   }
 }
 
-type ArrayInput<I> = [I] extends [$Atomic] ? never
-  : ReadonlyArray<VariabledInput<I>>
+type ArrayInput<I> = [I] extends [$Atomic] ? never : ReadonlyArray<VariabledInput<I>>
 
 type AllowedInlineScalars<S> = S extends string | number ? S : never
 
@@ -32,21 +27,13 @@ export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S> ? S
   : T extends Record<string, any> ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
   : T
 
-type VariableWithoutScalars<T, Str extends string> = Variable<
-  UnwrapCustomScalars<T>,
-  Str,
-  any
->
+type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str, any>
 
 // the array wrapper prevents distributive conditional types
 // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
 type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
   // scalars only support variable input
-  ?
-    | Variable<S | null | undefined, any, any>
-    | AllowedInlineScalars<S>
-    | null
-    | undefined
+  ? Variable<S | null | undefined, any, any> | AllowedInlineScalars<S> | null | undefined
   : [T] extends [CustomScalar<infer S>] ? Variable<S, any, any> | AllowedInlineScalars<S>
   : [T] extends [$Atomic] ? Variable<T, any, any> | T
   : T extends ReadonlyArray<infer I> ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
@@ -56,10 +43,7 @@ type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
       | undefined
       | { [K in keyof T]: VariabledInput<T[K]> }
       | T
-  : T extends Record<string, any> ?
-      | VariableWithoutScalars<T, any>
-      | { [K in keyof T]: VariabledInput<T[K]> }
-      | T
+  : T extends Record<string, any> ? VariableWithoutScalars<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
   : never
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I
@@ -70,9 +54,7 @@ type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
  *
  * @param name The variable name
  */
-export const $ = <Type, Name extends string>(
-  name: Name,
-): Variable<Type, Name, undefined> => {
+export const $ = <Type, Name extends string>(name: Name): Variable<Type, Name, undefined> => {
   return new Variable(name, undefined)
 }
 
@@ -81,9 +63,7 @@ export const $ = <Type, Name extends string>(
  *
  * @param name The variable name
  */
-export const $$ = <Type, Name extends string>(
-  name: Name,
-): Variable<NonNullable<Type>, Name, true> => {
+export const $$ = <Type, Name extends string>(name: Name): Variable<NonNullable<Type>, Name, true> => {
   return new Variable(name, true)
 }
 
@@ -123,10 +103,7 @@ class $Base<Name extends string> {
 class $Union<T, Name extends string> extends $Base<Name> {
   protected $$type!: T
 
-  constructor(
-    private selectorClasses: { [K in keyof T]: { new (): T[K] } },
-    $$name: Name,
-  ) {
+  constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
     super($$name)
   }
 
@@ -143,10 +120,7 @@ class $Union<T, Name extends string> extends $Base<Name> {
 class $Interface<T, Name extends string> extends $Base<Name> {
   protected $$type!: T
 
-  constructor(
-    private selectorClasses: { [K in keyof T]: { new (): T[K] } },
-    $$name: Name,
-  ) {
+  constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
     super($$name)
   }
   $on<Type extends keyof T, Sel extends Selection<T[Type]>>(
@@ -162,15 +136,10 @@ class $Interface<T, Name extends string> extends $Base<Name> {
 class $UnionSelection<T, Vars> {
   public kind: "union" = "union"
   protected vars!: Vars
-  constructor(
-    public alternativeName: string,
-    public alternativeSelection: Selection<T>,
-  ) {}
+  constructor(public alternativeName: string, public alternativeSelection: Selection<T>) {}
 }
 
-type Selection<_any> = ReadonlyArray<
-  $Field<any, any, any> | $UnionSelection<any, any>
->
+type Selection<_any> = ReadonlyArray<$Field<any, any, any> | $UnionSelection<any, any>>
 
 type NeverNever<T> = [T] extends [never] ? {} : T
 
@@ -187,8 +156,7 @@ export type GetOutput<X extends Selection<any>> = Simplify<
   >
   & NeverNever<
     {
-      [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type>
-        : never
+      [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type> : never
     }[keyof X & number]
   >
 >
@@ -206,13 +174,9 @@ type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer 
   : Inputs extends null | undefined ? { [K in keyof Inputs]: Inputs[K] }
   : Inputs extends $Atomic ? {}
   : Inputs extends any[] | readonly any[] ? UnionToIntersection<
-      {
-        [K in keyof Inputs]: ExtractInputVariables<Inputs[K]>
-      }[keyof Inputs & number]
+      { [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs & number]
     >
-  : UnionToIntersection<
-    { [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs]
-  >
+  : UnionToIntersection<{ [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs]>
 
 export type GetVariables<Sel extends Selection<any>, ExtraVars = {}> =
   & UnionToIntersection<
@@ -257,10 +221,7 @@ function getArgVarType(input: string): ArgVarType {
 }
 
 function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
-  const variables = new Map<
-    string,
-    { variable: Variable<any, any, any>; type: ArgVarType }
-  >()
+  const variables = new Map<string, { variable: Variable<any, any, any>; type: ArgVarType }>()
 
   function stringifyArgs(
     args: any,
@@ -280,9 +241,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
         if (args == null) return "null"
         if (VariableName in (args as any)) {
           if (!argVarType) {
-            throw new globalThis.Error(
-              "Cannot use variabe as sole unnamed field argument",
-            )
+            throw new globalThis.Error("Cannot use variabe as sole unnamed field argument")
           }
           const variable = args as Variable<any, any, any>
           const argVarName = variable[VariableName]
@@ -290,31 +249,21 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
           return "$" + argVarName
         }
         if (Array.isArray(args)) {
-          return "[" + args.map((arg) => stringifyArgs(arg, argTypes, argVarType)).join(",") +
-            "]"
+          return "[" + args.map((arg) => stringifyArgs(arg, argTypes, argVarType)).join(",") + "]"
         }
-        const wrapped = (
-          content: string,
-        ) => (argVarType ? "{" + content + "}" : content)
+        const wrapped = (content: string) => (argVarType ? "{" + content + "}" : content)
         return wrapped(
           Array.from(Object.entries(args))
             .map(([key, val]) => {
               let argTypeForKey = argTypes[key]
               if (!argTypeForKey) {
-                throw new globalThis.Error(
-                  `Argument type for ${key} not found`,
-                )
+                throw new globalThis.Error(`Argument type for ${key} not found`)
               }
-              const cleanType = argTypeForKey.replace("[", "").replace("]", "")
-                .replace(/!/g, "")
+              const cleanType = argTypeForKey.replace("[", "").replace("]", "").replace(/!/g, "")
               return (
                 key +
                 ":" +
-                stringifyArgs(
-                  val,
-                  $InputTypes[cleanType]!,
-                  getArgVarType(argTypeForKey),
-                )
+                stringifyArgs(val, $InputTypes[cleanType]!, getArgVarType(argTypeForKey))
               )
             })
             .join(","),
@@ -323,9 +272,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
     }
   }
 
-  function extractTextAndVars(
-    field: $Field<any, any, any> | $UnionSelection<any, any>,
-  ) {
+  function extractTextAndVars(field: $Field<any, any, any> | $UnionSelection<any, any>) {
     if (field.kind === "field") {
       let retVal = field.name
       if (field.alias) retVal = field.alias + ":" + retVal
@@ -423,8 +370,7 @@ type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = tr
   : Push<TuplifyUnion<Exclude<T, L>>, L>
 
 type AllFieldProperties<I> = {
-  [K in keyof I]: I[K] extends $Field<infer Name, infer Type, any> ? $Field<Name, Type, any>
-    : never
+  [K in keyof I]: I[K] extends $Field<infer Name, infer Type, any> ? $Field<Name, Type, any> : never
 }
 
 type ValueOf<T> = T[keyof T]
@@ -468,11 +414,7 @@ export class Film extends $Base<"Film"> {
       last?: number | null
     }>,
     selectorFn: (s: FilmCharactersConnection) => [...Sel],
-  ): $Field<
-    "characterConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"characterConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>
   characterConnection<Sel extends Selection<FilmCharactersConnection>>(
     selectorFn: (s: FilmCharactersConnection) => [...Sel],
   ): $Field<"characterConnection", GetOutput<Sel> | null, GetVariables<Sel>>
@@ -602,11 +544,7 @@ export class Film extends $Base<"Film"> {
       last?: number | null
     }>,
     selectorFn: (s: FilmSpeciesConnection) => [...Sel],
-  ): $Field<
-    "speciesConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"speciesConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>
   speciesConnection<Sel extends Selection<FilmSpeciesConnection>>(
     selectorFn: (s: FilmSpeciesConnection) => [...Sel],
   ): $Field<"speciesConnection", GetOutput<Sel> | null, GetVariables<Sel>>
@@ -643,11 +581,7 @@ export class Film extends $Base<"Film"> {
       last?: number | null
     }>,
     selectorFn: (s: FilmStarshipsConnection) => [...Sel],
-  ): $Field<
-    "starshipConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"starshipConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>
   starshipConnection<Sel extends Selection<FilmStarshipsConnection>>(
     selectorFn: (s: FilmStarshipsConnection) => [...Sel],
   ): $Field<"starshipConnection", GetOutput<Sel> | null, GetVariables<Sel>>
@@ -691,11 +625,7 @@ export class Film extends $Base<"Film"> {
       last?: number | null
     }>,
     selectorFn: (s: FilmVehiclesConnection) => [...Sel],
-  ): $Field<
-    "vehicleConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"vehicleConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>
   vehicleConnection<Sel extends Selection<FilmVehiclesConnection>>(
     selectorFn: (s: FilmVehiclesConnection) => [...Sel],
   ): $Field<"vehicleConnection", GetOutput<Sel> | null, GetVariables<Sel>>
@@ -735,11 +665,7 @@ full "{ edges { node } }" version should be used instead.
  */
   characters<Sel extends Selection<Person>>(
     selectorFn: (s: Person) => [...Sel],
-  ): $Field<
-    "characters",
-    Array<GetOutput<Sel> | null> | null,
-    GetVariables<Sel>
-  > {
+  ): $Field<"characters", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
     const options = {
       selection: selectorFn(new Person()),
     }
@@ -1115,11 +1041,7 @@ full "{ edges { node } }" version should be used instead.
  */
   starships<Sel extends Selection<Starship>>(
     selectorFn: (s: Starship) => [...Sel],
-  ): $Field<
-    "starships",
-    Array<GetOutput<Sel> | null> | null,
-    GetVariables<Sel>
-  > {
+  ): $Field<"starships", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
     const options = {
       selection: selectorFn(new Starship()),
     }
@@ -1217,11 +1139,7 @@ full "{ edges { node } }" version should be used instead.
  */
   vehicles<Sel extends Selection<Vehicle>>(
     selectorFn: (s: Vehicle) => [...Sel],
-  ): $Field<
-    "vehicles",
-    Array<GetOutput<Sel> | null> | null,
-    GetVariables<Sel>
-  > {
+  ): $Field<"vehicles", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
     const options = {
       selection: selectorFn(new Vehicle()),
     }
@@ -1261,25 +1179,14 @@ export class FilmVehiclesEdge extends $Base<"FilmVehiclesEdge"> {
  * An object with an ID
  */
 export class Node extends $Interface<
-  {
-    Film: Film
-    Person: Person
-    Planet: Planet
-    Species: Species
-    Starship: Starship
-    Vehicle: Vehicle
-  },
+  { Film: Film; Person: Person; Planet: Planet; Species: Species; Starship: Starship; Vehicle: Vehicle },
   "Node"
 > {
   constructor() {
-    super({
-      Film: Film,
-      Person: Person,
-      Planet: Planet,
-      Species: Species,
-      Starship: Starship,
-      Vehicle: Vehicle,
-    }, "Node")
+    super(
+      { Film: Film, Person: Person, Planet: Planet, Species: Species, Starship: Starship, Vehicle: Vehicle },
+      "Node",
+    )
   }
 
   /**
@@ -1582,11 +1489,7 @@ person does not have hair.
       last?: number | null
     }>,
     selectorFn: (s: PersonStarshipsConnection) => [...Sel],
-  ): $Field<
-    "starshipConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"starshipConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>
   starshipConnection<Sel extends Selection<PersonStarshipsConnection>>(
     selectorFn: (s: PersonStarshipsConnection) => [...Sel],
   ): $Field<"starshipConnection", GetOutput<Sel> | null, GetVariables<Sel>>
@@ -1623,11 +1526,7 @@ person does not have hair.
       last?: number | null
     }>,
     selectorFn: (s: PersonVehiclesConnection) => [...Sel],
-  ): $Field<
-    "vehicleConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"vehicleConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>
   vehicleConnection<Sel extends Selection<PersonVehiclesConnection>>(
     selectorFn: (s: PersonVehiclesConnection) => [...Sel],
   ): $Field<"vehicleConnection", GetOutput<Sel> | null, GetVariables<Sel>>
@@ -1779,11 +1678,7 @@ full "{ edges { node } }" version should be used instead.
  */
   starships<Sel extends Selection<Starship>>(
     selectorFn: (s: Starship) => [...Sel],
-  ): $Field<
-    "starships",
-    Array<GetOutput<Sel> | null> | null,
-    GetVariables<Sel>
-  > {
+  ): $Field<"starships", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
     const options = {
       selection: selectorFn(new Starship()),
     }
@@ -1881,11 +1776,7 @@ full "{ edges { node } }" version should be used instead.
  */
   vehicles<Sel extends Selection<Vehicle>>(
     selectorFn: (s: Vehicle) => [...Sel],
-  ): $Field<
-    "vehicles",
-    Array<GetOutput<Sel> | null> | null,
-    GetVariables<Sel>
-  > {
+  ): $Field<"vehicles", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
     const options = {
       selection: selectorFn(new Vehicle()),
     }
@@ -2048,11 +1939,7 @@ of its local star.
       last?: number | null
     }>,
     selectorFn: (s: PlanetResidentsConnection) => [...Sel],
-  ): $Field<
-    "residentConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"residentConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>
   residentConnection<Sel extends Selection<PlanetResidentsConnection>>(
     selectorFn: (s: PlanetResidentsConnection) => [...Sel],
   ): $Field<"residentConnection", GetOutput<Sel> | null, GetVariables<Sel>>
@@ -2227,11 +2114,7 @@ full "{ edges { node } }" version should be used instead.
  */
   residents<Sel extends Selection<Person>>(
     selectorFn: (s: Person) => [...Sel],
-  ): $Field<
-    "residents",
-    Array<GetOutput<Sel> | null> | null,
-    GetVariables<Sel>
-  > {
+  ): $Field<"residents", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
     const options = {
       selection: selectorFn(new Person()),
     }
@@ -2903,10 +2786,7 @@ have eyes.
  * Common hair colors for this species, null if this species does not typically
 have hair.
  */
-  get hairColors(): $Field<
-    "hairColors",
-    Readonly<Array<string | null>> | null
-  > {
+  get hairColors(): $Field<"hairColors", Readonly<Array<string | null>> | null> {
     return this.$_select("hairColors") as any
   }
 
@@ -2984,10 +2864,7 @@ have hair.
  * Common skin colors for this species, null if this species does not typically
 have skin.
  */
-  get skinColors(): $Field<
-    "skinColors",
-    Readonly<Array<string | null>> | null
-  > {
+  get skinColors(): $Field<"skinColors", Readonly<Array<string | null>> | null> {
     return this.$_select("skinColors") as any
   }
 }
@@ -3379,10 +3256,7 @@ entire crew without having to resupply.
   /**
    * The manufacturers of this starship.
    */
-  get manufacturers(): $Field<
-    "manufacturers",
-    Readonly<Array<string | null>> | null
-  > {
+  get manufacturers(): $Field<"manufacturers", Readonly<Array<string | null>> | null> {
     return this.$_select("manufacturers") as any
   }
 
@@ -3680,11 +3554,7 @@ full "{ edges { node } }" version should be used instead.
  */
   starships<Sel extends Selection<Starship>>(
     selectorFn: (s: Starship) => [...Sel],
-  ): $Field<
-    "starships",
-    Array<GetOutput<Sel> | null> | null,
-    GetVariables<Sel>
-  > {
+  ): $Field<"starships", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
     const options = {
       selection: selectorFn(new Starship()),
     }
@@ -3835,10 +3705,7 @@ entire crew without having to resupply.
   /**
    * The manufacturers of this vehicle.
    */
-  get manufacturers(): $Field<
-    "manufacturers",
-    Readonly<Array<string | null>> | null
-  > {
+  get manufacturers(): $Field<"manufacturers", Readonly<Array<string | null>> | null> {
     return this.$_select("manufacturers") as any
   }
 
@@ -4145,11 +4012,7 @@ full "{ edges { node } }" version should be used instead.
  */
   vehicles<Sel extends Selection<Vehicle>>(
     selectorFn: (s: Vehicle) => [...Sel],
-  ): $Field<
-    "vehicles",
-    Array<GetOutput<Sel> | null> | null,
-    GetVariables<Sel>
-  > {
+  ): $Field<"vehicles", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
     const options = {
       selection: selectorFn(new Vehicle()),
     }
@@ -4200,10 +4063,7 @@ export function query<Sel extends Selection<$RootTypes.query>>(
 export function query<Sel extends Selection<$RootTypes.query>>(
   selectFn: (q: $RootTypes.query) => [...Sel],
 ): TypedDocumentNode<GetOutput<Sel>, Simplify<GetVariables<Sel>>>
-export function query<Sel extends Selection<$RootTypes.query>>(
-  name: any,
-  selectFn?: any,
-) {
+export function query<Sel extends Selection<$RootTypes.query>>(name: any, selectFn?: any) {
   if (!selectFn) {
     selectFn = name
     name = ""

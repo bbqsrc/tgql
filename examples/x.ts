@@ -7,11 +7,7 @@ const ScalarBrandingField = " $1fcbcbff-3e78-462f-b45c-668a3e09bfd9"
 
 type CustomScalar<T> = { [ScalarBrandingField]: T }
 
-class Variable<
-  T,
-  Name extends string,
-  IsRequired extends boolean | undefined = undefined,
-> {
+class Variable<T, Name extends string, IsRequired extends boolean | undefined = undefined> {
   private [VariableName]: Name
   public readonly isRequired?: IsRequired
   declare private _typeMarker: T
@@ -22,8 +18,7 @@ class Variable<
   }
 }
 
-type ArrayInput<I> = [I] extends [$Atomic] ? never
-  : ReadonlyArray<VariabledInput<I>>
+type ArrayInput<I> = [I] extends [$Atomic] ? never : ReadonlyArray<VariabledInput<I>>
 
 type AllowedInlineScalars<S> = S extends string | number ? S : never
 
@@ -32,21 +27,13 @@ export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S> ? S
   : T extends Record<string, any> ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
   : T
 
-type VariableWithoutScalars<T, Str extends string> = Variable<
-  UnwrapCustomScalars<T>,
-  Str,
-  any
->
+type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str, any>
 
 // the array wrapper prevents distributive conditional types
 // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
 type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
   // scalars only support variable input
-  ?
-    | Variable<S | null | undefined, any, any>
-    | AllowedInlineScalars<S>
-    | null
-    | undefined
+  ? Variable<S | null | undefined, any, any> | AllowedInlineScalars<S> | null | undefined
   : [T] extends [CustomScalar<infer S>] ? Variable<S, any, any> | AllowedInlineScalars<S>
   : [T] extends [$Atomic] ? Variable<T, any, any> | T
   : T extends ReadonlyArray<infer I> ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
@@ -56,10 +43,7 @@ type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
       | undefined
       | { [K in keyof T]: VariabledInput<T[K]> }
       | T
-  : T extends Record<string, any> ?
-      | VariableWithoutScalars<T, any>
-      | { [K in keyof T]: VariabledInput<T[K]> }
-      | T
+  : T extends Record<string, any> ? VariableWithoutScalars<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
   : never
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I
@@ -70,9 +54,7 @@ type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
  *
  * @param name The variable name
  */
-export const $ = <Type, Name extends string>(
-  name: Name,
-): Variable<Type, Name, undefined> => {
+export const $ = <Type, Name extends string>(name: Name): Variable<Type, Name, undefined> => {
   return new Variable(name, undefined)
 }
 
@@ -81,9 +63,7 @@ export const $ = <Type, Name extends string>(
  *
  * @param name The variable name
  */
-export const $$ = <Type, Name extends string>(
-  name: Name,
-): Variable<NonNullable<Type>, Name, true> => {
+export const $$ = <Type, Name extends string>(name: Name): Variable<NonNullable<Type>, Name, true> => {
   return new Variable(name, true)
 }
 
@@ -123,10 +103,7 @@ class $Base<Name extends string> {
 class $Union<T, Name extends string> extends $Base<Name> {
   protected $$type!: T
 
-  constructor(
-    private selectorClasses: { [K in keyof T]: { new (): T[K] } },
-    $$name: Name,
-  ) {
+  constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
     super($$name)
   }
 
@@ -143,10 +120,7 @@ class $Union<T, Name extends string> extends $Base<Name> {
 class $Interface<T, Name extends string> extends $Base<Name> {
   protected $$type!: T
 
-  constructor(
-    private selectorClasses: { [K in keyof T]: { new (): T[K] } },
-    $$name: Name,
-  ) {
+  constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
     super($$name)
   }
   $on<Type extends keyof T, Sel extends Selection<T[Type]>>(
@@ -162,15 +136,10 @@ class $Interface<T, Name extends string> extends $Base<Name> {
 class $UnionSelection<T, Vars> {
   public kind: "union" = "union"
   protected vars!: Vars
-  constructor(
-    public alternativeName: string,
-    public alternativeSelection: Selection<T>,
-  ) {}
+  constructor(public alternativeName: string, public alternativeSelection: Selection<T>) {}
 }
 
-type Selection<_any> = ReadonlyArray<
-  $Field<any, any, any> | $UnionSelection<any, any>
->
+type Selection<_any> = ReadonlyArray<$Field<any, any, any> | $UnionSelection<any, any>>
 
 type NeverNever<T> = [T] extends [never] ? {} : T
 
@@ -187,8 +156,7 @@ export type GetOutput<X extends Selection<any>> = Simplify<
   >
   & NeverNever<
     {
-      [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type>
-        : never
+      [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type> : never
     }[keyof X & number]
   >
 >
@@ -206,13 +174,9 @@ type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer 
   : Inputs extends null | undefined ? { [K in keyof Inputs]: Inputs[K] }
   : Inputs extends $Atomic ? {}
   : Inputs extends any[] | readonly any[] ? UnionToIntersection<
-      {
-        [K in keyof Inputs]: ExtractInputVariables<Inputs[K]>
-      }[keyof Inputs & number]
+      { [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs & number]
     >
-  : UnionToIntersection<
-    { [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs]
-  >
+  : UnionToIntersection<{ [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs]>
 
 export type GetVariables<Sel extends Selection<any>, ExtraVars = {}> =
   & UnionToIntersection<
@@ -257,10 +221,7 @@ function getArgVarType(input: string): ArgVarType {
 }
 
 function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
-  const variables = new Map<
-    string,
-    { variable: Variable<any, any, any>; type: ArgVarType }
-  >()
+  const variables = new Map<string, { variable: Variable<any, any, any>; type: ArgVarType }>()
 
   function stringifyArgs(
     args: any,
@@ -280,9 +241,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
         if (args == null) return "null"
         if (VariableName in (args as any)) {
           if (!argVarType) {
-            throw new globalThis.Error(
-              "Cannot use variabe as sole unnamed field argument",
-            )
+            throw new globalThis.Error("Cannot use variabe as sole unnamed field argument")
           }
           const variable = args as Variable<any, any, any>
           const argVarName = variable[VariableName]
@@ -290,31 +249,21 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
           return "$" + argVarName
         }
         if (Array.isArray(args)) {
-          return "[" + args.map((arg) => stringifyArgs(arg, argTypes, argVarType)).join(",") +
-            "]"
+          return "[" + args.map((arg) => stringifyArgs(arg, argTypes, argVarType)).join(",") + "]"
         }
-        const wrapped = (
-          content: string,
-        ) => (argVarType ? "{" + content + "}" : content)
+        const wrapped = (content: string) => (argVarType ? "{" + content + "}" : content)
         return wrapped(
           Array.from(Object.entries(args))
             .map(([key, val]) => {
               let argTypeForKey = argTypes[key]
               if (!argTypeForKey) {
-                throw new globalThis.Error(
-                  `Argument type for ${key} not found`,
-                )
+                throw new globalThis.Error(`Argument type for ${key} not found`)
               }
-              const cleanType = argTypeForKey.replace("[", "").replace("]", "")
-                .replace(/!/g, "")
+              const cleanType = argTypeForKey.replace("[", "").replace("]", "").replace(/!/g, "")
               return (
                 key +
                 ":" +
-                stringifyArgs(
-                  val,
-                  $InputTypes[cleanType]!,
-                  getArgVarType(argTypeForKey),
-                )
+                stringifyArgs(val, $InputTypes[cleanType]!, getArgVarType(argTypeForKey))
               )
             })
             .join(","),
@@ -323,9 +272,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
     }
   }
 
-  function extractTextAndVars(
-    field: $Field<any, any, any> | $UnionSelection<any, any>,
-  ) {
+  function extractTextAndVars(field: $Field<any, any, any> | $UnionSelection<any, any>) {
     if (field.kind === "field") {
       let retVal = field.name
       if (field.alias) retVal = field.alias + ":" + retVal
@@ -423,8 +370,7 @@ type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = tr
   : Push<TuplifyUnion<Exclude<T, L>>, L>
 
 type AllFieldProperties<I> = {
-  [K in keyof I]: I[K] extends $Field<infer Name, infer Type, any> ? $Field<Name, Type, any>
-    : never
+  [K in keyof I]: I[K] extends $Field<infer Name, infer Type, any> ? $Field<Name, Type, any> : never
 }
 
 type ValueOf<T> = T[keyof T]
@@ -937,11 +883,7 @@ export class booking extends $Base<"booking"> {
       where?: booking_bool_exp | null
     }>,
     selectorFn: (s: booking_aggregate) => [...Sel],
-  ): $Field<
-    "relatedBookings_aggregate",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"relatedBookings_aggregate", GetOutput<Sel>, GetVariables<Sel, Args>>
   relatedBookings_aggregate<Sel extends Selection<booking_aggregate>>(
     selectorFn: (s: booking_aggregate) => [...Sel],
   ): $Field<"relatedBookings_aggregate", GetOutput<Sel>, GetVariables<Sel>>
@@ -3466,11 +3408,7 @@ export class connection extends $Base<"connection"> {
     args: ExactArgNames<Args, {
       path?: string | null
     }>,
-  ): $Field<
-    "persistentState",
-    CustomScalar<jsonb> | null,
-    GetVariables<[], Args>
-  > {
+  ): $Field<"persistentState", CustomScalar<jsonb> | null, GetVariables<[], Args>> {
     const options = {
       argTypes: {
         path: "String",
@@ -4939,11 +4877,7 @@ export class entity extends $Base<"entity"> {
     args: ExactArgNames<Args, {
       path?: string | null
     }>,
-  ): $Field<
-    "normalizedJson",
-    CustomScalar<jsonb> | null,
-    GetVariables<[], Args>
-  > {
+  ): $Field<"normalizedJson", CustomScalar<jsonb> | null, GetVariables<[], Args>> {
     const options = {
       argTypes: {
         path: "String",
@@ -5059,10 +4993,7 @@ export class entity extends $Base<"entity"> {
     return this.$_select("predecessorEntity", options as any) as any
   }
 
-  get predecessorEntityId(): $Field<
-    "predecessorEntityId",
-    CustomScalar<uuid> | null
-  > {
+  get predecessorEntityId(): $Field<"predecessorEntityId", CustomScalar<uuid> | null> {
     return this.$_select("predecessorEntityId") as any
   }
 
@@ -5095,11 +5026,7 @@ export class entity extends $Base<"entity"> {
       where?: entity_bool_exp | null
     }>,
     selectorFn: (s: entity) => [...Sel],
-  ): $Field<
-    "successorEntities",
-    Array<GetOutput<Sel>>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"successorEntities", Array<GetOutput<Sel>>, GetVariables<Sel, Args>>
   successorEntities<Sel extends Selection<entity>>(
     selectorFn: (s: entity) => [...Sel],
   ): $Field<"successorEntities", Array<GetOutput<Sel>>, GetVariables<Sel>>
@@ -5142,11 +5069,7 @@ export class entity extends $Base<"entity"> {
       where?: entity_bool_exp | null
     }>,
     selectorFn: (s: entity_aggregate) => [...Sel],
-  ): $Field<
-    "successorEntities_aggregate",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"successorEntities_aggregate", GetOutput<Sel>, GetVariables<Sel, Args>>
   successorEntities_aggregate<Sel extends Selection<entity_aggregate>>(
     selectorFn: (s: entity_aggregate) => [...Sel],
   ): $Field<"successorEntities_aggregate", GetOutput<Sel>, GetVariables<Sel>>
@@ -5530,10 +5453,7 @@ export class entity_max_fields extends $Base<"entity_max_fields"> {
     return this.$_select("parsedAt") as any
   }
 
-  get predecessorEntityId(): $Field<
-    "predecessorEntityId",
-    CustomScalar<uuid> | null
-  > {
+  get predecessorEntityId(): $Field<"predecessorEntityId", CustomScalar<uuid> | null> {
     return this.$_select("predecessorEntityId") as any
   }
 
@@ -5613,10 +5533,7 @@ export class entity_min_fields extends $Base<"entity_min_fields"> {
     return this.$_select("parsedAt") as any
   }
 
-  get predecessorEntityId(): $Field<
-    "predecessorEntityId",
-    CustomScalar<uuid> | null
-  > {
+  get predecessorEntityId(): $Field<"predecessorEntityId", CustomScalar<uuid> | null> {
     return this.$_select("predecessorEntityId") as any
   }
 
@@ -7187,9 +7104,7 @@ export class issue extends $Base<"issue"> {
   /**
    * An object relationship
    */
-  job<Sel extends Selection<job>>(
-    selectorFn: (s: job) => [...Sel],
-  ): $Field<"job", GetOutput<Sel>, GetVariables<Sel>> {
+  job<Sel extends Selection<job>>(selectorFn: (s: job) => [...Sel]): $Field<"job", GetOutput<Sel>, GetVariables<Sel>> {
     const options = {
       selection: selectorFn(new job()),
     }
@@ -7212,11 +7127,7 @@ export class issue extends $Base<"issue"> {
     args: ExactArgNames<Args, {
       path?: string | null
     }>,
-  ): $Field<
-    "requestParams",
-    CustomScalar<jsonb> | null,
-    GetVariables<[], Args>
-  > {
+  ): $Field<"requestParams", CustomScalar<jsonb> | null, GetVariables<[], Args>> {
     const options = {
       argTypes: {
         path: "String",
@@ -7234,11 +7145,7 @@ export class issue extends $Base<"issue"> {
     args: ExactArgNames<Args, {
       path?: string | null
     }>,
-  ): $Field<
-    "resolveParams",
-    CustomScalar<jsonb> | null,
-    GetVariables<[], Args>
-  > {
+  ): $Field<"resolveParams", CustomScalar<jsonb> | null, GetVariables<[], Args>> {
     const options = {
       argTypes: {
         path: "String",
@@ -9466,11 +9373,7 @@ export class line extends $Base<"line"> {
       where?: line_bool_exp | null
     }>,
     selectorFn: (s: line_aggregate) => [...Sel],
-  ): $Field<
-    "enhancementLines_aggregate",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"enhancementLines_aggregate", GetOutput<Sel>, GetVariables<Sel, Args>>
   enhancementLines_aggregate<Sel extends Selection<line_aggregate>>(
     selectorFn: (s: line_aggregate) => [...Sel],
   ): $Field<"enhancementLines_aggregate", GetOutput<Sel>, GetVariables<Sel>>
@@ -9546,10 +9449,7 @@ export class line extends $Base<"line"> {
     return this.$_select("originCurrency") as any
   }
 
-  get originExchangeRate(): $Field<
-    "originExchangeRate",
-    CustomScalar<numeric> | null
-  > {
+  get originExchangeRate(): $Field<"originExchangeRate", CustomScalar<numeric> | null> {
     return this.$_select("originExchangeRate") as any
   }
 
@@ -9569,10 +9469,7 @@ export class line extends $Base<"line"> {
     return this.$_select("paymentId") as any
   }
 
-  get subclassification(): $Field<
-    "subclassification",
-    subclassification_enum | null
-  > {
+  get subclassification(): $Field<"subclassification", subclassification_enum | null> {
     return this.$_select("subclassification") as any
   }
 
@@ -9976,10 +9873,7 @@ export class line_max_fields extends $Base<"line_max_fields"> {
     return this.$_select("originCurrency") as any
   }
 
-  get originExchangeRate(): $Field<
-    "originExchangeRate",
-    CustomScalar<numeric> | null
-  > {
+  get originExchangeRate(): $Field<"originExchangeRate", CustomScalar<numeric> | null> {
     return this.$_select("originExchangeRate") as any
   }
 
@@ -10079,10 +9973,7 @@ export class line_min_fields extends $Base<"line_min_fields"> {
     return this.$_select("originCurrency") as any
   }
 
-  get originExchangeRate(): $Field<
-    "originExchangeRate",
-    CustomScalar<numeric> | null
-  > {
+  get originExchangeRate(): $Field<"originExchangeRate", CustomScalar<numeric> | null> {
     return this.$_select("originExchangeRate") as any
   }
 
@@ -10469,10 +10360,7 @@ export class line_sum_fields extends $Base<"line_sum_fields"> {
     return this.$_select("originCentTotal") as any
   }
 
-  get originExchangeRate(): $Field<
-    "originExchangeRate",
-    CustomScalar<numeric> | null
-  > {
+  get originExchangeRate(): $Field<"originExchangeRate", CustomScalar<numeric> | null> {
     return this.$_select("originExchangeRate") as any
   }
 }
@@ -11607,11 +11495,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: bookingStatus) => [...Sel],
-  ): $Field<
-    "deleteBookingStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteBookingStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -11636,11 +11520,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: bookingStatus_bool_exp
     }>,
     selectorFn: (s: bookingStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteBookingStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteBookingStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "bookingStatus_bool_exp!",
@@ -11690,11 +11570,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: classification) => [...Sel],
-  ): $Field<
-    "deleteClassification",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteClassification", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -11719,11 +11595,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: classification_bool_exp
     }>,
     selectorFn: (s: classification_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteClassifications",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteClassifications", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "classification_bool_exp!",
@@ -11748,11 +11620,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       id: CustomScalar<uuid>
     }>,
     selectorFn: (s: connection) => [...Sel],
-  ): $Field<
-    "deleteConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         id: "uuid!",
@@ -11777,11 +11645,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: connection_bool_exp
     }>,
     selectorFn: (s: connection_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteConnections",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteConnections", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "connection_bool_exp!",
@@ -11806,11 +11670,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: currency_bool_exp
     }>,
     selectorFn: (s: currency_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteCurrencies",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteCurrencies", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "currency_bool_exp!",
@@ -11910,11 +11770,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: entityStatus) => [...Sel],
-  ): $Field<
-    "deleteEntityStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteEntityStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -11939,11 +11795,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: entityStatus_bool_exp
     }>,
     selectorFn: (s: entityStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteEntityStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteEntityStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "entityStatus_bool_exp!",
@@ -11968,11 +11820,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       id: CustomScalar<uuid>
     }>,
     selectorFn: (s: integration) => [...Sel],
-  ): $Field<
-    "deleteIntegration",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteIntegration", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         id: "uuid!",
@@ -11997,11 +11845,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: integrationType) => [...Sel],
-  ): $Field<
-    "deleteIntegrationType",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteIntegrationType", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -12026,11 +11870,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: integrationType_bool_exp
     }>,
     selectorFn: (s: integrationType_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteIntegrationTypes",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteIntegrationTypes", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "integrationType_bool_exp!",
@@ -12055,11 +11895,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: integration_bool_exp
     }>,
     selectorFn: (s: integration_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteIntegrations",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteIntegrations", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "integration_bool_exp!",
@@ -12184,11 +12020,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: jobMethod_bool_exp
     }>,
     selectorFn: (s: jobMethod_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteJobMethods",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteJobMethods", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "jobMethod_bool_exp!",
@@ -12238,11 +12070,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: jobStatus_bool_exp
     }>,
     selectorFn: (s: jobStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteJobStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteJobStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "jobStatus_bool_exp!",
@@ -12392,11 +12220,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: normalizedType) => [...Sel],
-  ): $Field<
-    "deleteNormalizedType",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteNormalizedType", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -12421,11 +12245,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: normalizedType_bool_exp
     }>,
     selectorFn: (s: normalizedType_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteNormalizedTypes",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteNormalizedTypes", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "normalizedType_bool_exp!",
@@ -12475,11 +12295,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: paymentStatus) => [...Sel],
-  ): $Field<
-    "deletePaymentStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deletePaymentStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -12504,11 +12320,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: paymentStatus_bool_exp
     }>,
     selectorFn: (s: paymentStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "deletePaymentStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deletePaymentStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "paymentStatus_bool_exp!",
@@ -12533,11 +12345,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: paymentType) => [...Sel],
-  ): $Field<
-    "deletePaymentType",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deletePaymentType", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -12562,11 +12370,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: paymentType_bool_exp
     }>,
     selectorFn: (s: paymentType_mutation_response) => [...Sel],
-  ): $Field<
-    "deletePaymentTypes",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deletePaymentTypes", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "paymentType_bool_exp!",
@@ -12616,11 +12420,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: subclassification) => [...Sel],
-  ): $Field<
-    "deleteSubclassification",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteSubclassification", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -12645,11 +12445,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: subclassification_bool_exp
     }>,
     selectorFn: (s: subclassification_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteSubclassifications",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteSubclassifications", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "subclassification_bool_exp!",
@@ -12899,11 +12695,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: userStatus) => [...Sel],
-  ): $Field<
-    "deleteUserStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteUserStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -12928,11 +12720,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: userStatus_bool_exp
     }>,
     selectorFn: (s: userStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "deleteUserStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"deleteUserStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "userStatus_bool_exp!",
@@ -13032,11 +12820,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: booking_channel_bool_exp
     }>,
     selectorFn: (s: booking_channel_mutation_response) => [...Sel],
-  ): $Field<
-    "delete_booking_channel",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"delete_booking_channel", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         where: "booking_channel_bool_exp!",
@@ -13061,11 +12845,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       name: string
     }>,
     selectorFn: (s: booking_channel) => [...Sel],
-  ): $Field<
-    "delete_booking_channel_by_pk",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"delete_booking_channel_by_pk", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -13120,11 +12900,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: bookingStatus_on_conflict | null
     }>,
     selectorFn: (s: bookingStatus) => [...Sel],
-  ): $Field<
-    "insertBookingStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertBookingStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "bookingStatus_insert_input!",
@@ -13152,11 +12928,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: bookingStatus_on_conflict | null
     }>,
     selectorFn: (s: bookingStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "insertBookingStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertBookingStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[bookingStatus_insert_input!]!",
@@ -13212,11 +12984,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: classification_on_conflict | null
     }>,
     selectorFn: (s: classification) => [...Sel],
-  ): $Field<
-    "insertClassification",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertClassification", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "classification_insert_input!",
@@ -13244,11 +13012,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: classification_on_conflict | null
     }>,
     selectorFn: (s: classification_mutation_response) => [...Sel],
-  ): $Field<
-    "insertClassifications",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertClassifications", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[classification_insert_input!]!",
@@ -13276,11 +13040,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: connection_on_conflict | null
     }>,
     selectorFn: (s: connection) => [...Sel],
-  ): $Field<
-    "insertConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "connection_insert_input!",
@@ -13308,11 +13068,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: connection_on_conflict | null
     }>,
     selectorFn: (s: connection_mutation_response) => [...Sel],
-  ): $Field<
-    "insertConnections",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertConnections", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[connection_insert_input!]!",
@@ -13340,11 +13096,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: currency_on_conflict | null
     }>,
     selectorFn: (s: currency_mutation_response) => [...Sel],
-  ): $Field<
-    "insertCurrencies",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertCurrencies", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[currency_insert_input!]!",
@@ -13456,11 +13208,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: entityStatus_on_conflict | null
     }>,
     selectorFn: (s: entityStatus) => [...Sel],
-  ): $Field<
-    "insertEntityStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertEntityStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "entityStatus_insert_input!",
@@ -13488,11 +13236,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: entityStatus_on_conflict | null
     }>,
     selectorFn: (s: entityStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "insertEntityStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertEntityStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[entityStatus_insert_input!]!",
@@ -13520,11 +13264,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: integration_on_conflict | null
     }>,
     selectorFn: (s: integration) => [...Sel],
-  ): $Field<
-    "insertIntegration",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertIntegration", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "integration_insert_input!",
@@ -13552,11 +13292,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: integrationType_on_conflict | null
     }>,
     selectorFn: (s: integrationType) => [...Sel],
-  ): $Field<
-    "insertIntegrationType",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertIntegrationType", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "integrationType_insert_input!",
@@ -13584,11 +13320,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: integrationType_on_conflict | null
     }>,
     selectorFn: (s: integrationType_mutation_response) => [...Sel],
-  ): $Field<
-    "insertIntegrationTypes",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertIntegrationTypes", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[integrationType_insert_input!]!",
@@ -13616,11 +13348,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: integration_on_conflict | null
     }>,
     selectorFn: (s: integration_mutation_response) => [...Sel],
-  ): $Field<
-    "insertIntegrations",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertIntegrations", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[integration_insert_input!]!",
@@ -13760,11 +13488,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: jobMethod_on_conflict | null
     }>,
     selectorFn: (s: jobMethod_mutation_response) => [...Sel],
-  ): $Field<
-    "insertJobMethods",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertJobMethods", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[jobMethod_insert_input!]!",
@@ -13820,11 +13544,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: jobStatus_on_conflict | null
     }>,
     selectorFn: (s: jobStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "insertJobStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertJobStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[jobStatus_insert_input!]!",
@@ -13992,11 +13712,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: normalizedType_on_conflict | null
     }>,
     selectorFn: (s: normalizedType) => [...Sel],
-  ): $Field<
-    "insertNormalizedType",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertNormalizedType", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "normalizedType_insert_input!",
@@ -14024,11 +13740,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: normalizedType_on_conflict | null
     }>,
     selectorFn: (s: normalizedType_mutation_response) => [...Sel],
-  ): $Field<
-    "insertNormalizedTypes",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertNormalizedTypes", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[normalizedType_insert_input!]!",
@@ -14084,11 +13796,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: paymentStatus_on_conflict | null
     }>,
     selectorFn: (s: paymentStatus) => [...Sel],
-  ): $Field<
-    "insertPaymentStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertPaymentStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "paymentStatus_insert_input!",
@@ -14116,11 +13824,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: paymentStatus_on_conflict | null
     }>,
     selectorFn: (s: paymentStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "insertPaymentStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertPaymentStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[paymentStatus_insert_input!]!",
@@ -14148,11 +13852,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: paymentType_on_conflict | null
     }>,
     selectorFn: (s: paymentType) => [...Sel],
-  ): $Field<
-    "insertPaymentType",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertPaymentType", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "paymentType_insert_input!",
@@ -14180,11 +13880,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: paymentType_on_conflict | null
     }>,
     selectorFn: (s: paymentType_mutation_response) => [...Sel],
-  ): $Field<
-    "insertPaymentTypes",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertPaymentTypes", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[paymentType_insert_input!]!",
@@ -14240,11 +13936,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: subclassification_on_conflict | null
     }>,
     selectorFn: (s: subclassification) => [...Sel],
-  ): $Field<
-    "insertSubclassification",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertSubclassification", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "subclassification_insert_input!",
@@ -14272,11 +13964,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: subclassification_on_conflict | null
     }>,
     selectorFn: (s: subclassification_mutation_response) => [...Sel],
-  ): $Field<
-    "insertSubclassifications",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertSubclassifications", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[subclassification_insert_input!]!",
@@ -14556,11 +14244,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: userStatus_on_conflict | null
     }>,
     selectorFn: (s: userStatus) => [...Sel],
-  ): $Field<
-    "insertUserStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertUserStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "userStatus_insert_input!",
@@ -14588,11 +14272,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: userStatus_on_conflict | null
     }>,
     selectorFn: (s: userStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "insertUserStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insertUserStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[userStatus_insert_input!]!",
@@ -14704,11 +14384,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: booking_channel_on_conflict | null
     }>,
     selectorFn: (s: booking_channel_mutation_response) => [...Sel],
-  ): $Field<
-    "insert_booking_channel",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insert_booking_channel", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         objects: "[booking_channel_insert_input!]!",
@@ -14736,11 +14412,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       on_conflict?: booking_channel_on_conflict | null
     }>,
     selectorFn: (s: booking_channel) => [...Sel],
-  ): $Field<
-    "insert_booking_channel_one",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"insert_booking_channel_one", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         object: "booking_channel_insert_input!",
@@ -14814,11 +14486,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: bookingStatus_pk_columns_input
     }>,
     selectorFn: (s: bookingStatus) => [...Sel],
-  ): $Field<
-    "updateBookingStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateBookingStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "bookingStatus_set_input",
@@ -14846,11 +14514,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: bookingStatus_bool_exp
     }>,
     selectorFn: (s: bookingStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "updateBookingStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateBookingStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "bookingStatus_set_input",
@@ -14924,11 +14588,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: classification_pk_columns_input
     }>,
     selectorFn: (s: classification) => [...Sel],
-  ): $Field<
-    "updateClassification",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateClassification", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "classification_set_input",
@@ -14956,11 +14616,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: classification_bool_exp
     }>,
     selectorFn: (s: classification_mutation_response) => [...Sel],
-  ): $Field<
-    "updateClassifications",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateClassifications", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "classification_set_input",
@@ -14998,11 +14654,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: connection_pk_columns_input
     }>,
     selectorFn: (s: connection) => [...Sel],
-  ): $Field<
-    "updateConnection",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _append: "connection_append_input",
@@ -15045,11 +14697,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: connection_bool_exp
     }>,
     selectorFn: (s: connection_mutation_response) => [...Sel],
-  ): $Field<
-    "updateConnections",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateConnections", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _append: "connection_append_input",
@@ -15082,11 +14730,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: currency_bool_exp
     }>,
     selectorFn: (s: currency_mutation_response) => [...Sel],
-  ): $Field<
-    "updateCurrencies",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateCurrencies", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "currency_set_input",
@@ -15228,11 +14872,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: entityStatus_pk_columns_input
     }>,
     selectorFn: (s: entityStatus) => [...Sel],
-  ): $Field<
-    "updateEntityStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateEntityStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "entityStatus_set_input",
@@ -15260,11 +14900,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: entityStatus_bool_exp
     }>,
     selectorFn: (s: entityStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "updateEntityStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateEntityStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "entityStatus_set_input",
@@ -15292,11 +14928,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: integration_pk_columns_input
     }>,
     selectorFn: (s: integration) => [...Sel],
-  ): $Field<
-    "updateIntegration",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateIntegration", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "integration_set_input",
@@ -15324,11 +14956,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: integrationType_pk_columns_input
     }>,
     selectorFn: (s: integrationType) => [...Sel],
-  ): $Field<
-    "updateIntegrationType",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateIntegrationType", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "integrationType_set_input",
@@ -15356,11 +14984,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: integrationType_bool_exp
     }>,
     selectorFn: (s: integrationType_mutation_response) => [...Sel],
-  ): $Field<
-    "updateIntegrationTypes",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateIntegrationTypes", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "integrationType_set_input",
@@ -15388,11 +15012,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: integration_bool_exp
     }>,
     selectorFn: (s: integration_mutation_response) => [...Sel],
-  ): $Field<
-    "updateIntegrations",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateIntegrations", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "integration_set_input",
@@ -15577,11 +15197,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: jobMethod_bool_exp
     }>,
     selectorFn: (s: jobMethod_mutation_response) => [...Sel],
-  ): $Field<
-    "updateJobMethods",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateJobMethods", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "jobMethod_set_input",
@@ -15637,11 +15253,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: jobStatus_bool_exp
     }>,
     selectorFn: (s: jobStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "updateJobStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateJobStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "jobStatus_set_input",
@@ -15896,11 +15508,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: normalizedType_pk_columns_input
     }>,
     selectorFn: (s: normalizedType) => [...Sel],
-  ): $Field<
-    "updateNormalizedType",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateNormalizedType", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "normalizedType_set_input",
@@ -15928,11 +15536,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: normalizedType_bool_exp
     }>,
     selectorFn: (s: normalizedType_mutation_response) => [...Sel],
-  ): $Field<
-    "updateNormalizedTypes",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateNormalizedTypes", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "normalizedType_set_input",
@@ -16006,11 +15610,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: paymentStatus_pk_columns_input
     }>,
     selectorFn: (s: paymentStatus) => [...Sel],
-  ): $Field<
-    "updatePaymentStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updatePaymentStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "paymentStatus_set_input",
@@ -16038,11 +15638,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: paymentStatus_bool_exp
     }>,
     selectorFn: (s: paymentStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "updatePaymentStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updatePaymentStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "paymentStatus_set_input",
@@ -16070,11 +15666,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: paymentType_pk_columns_input
     }>,
     selectorFn: (s: paymentType) => [...Sel],
-  ): $Field<
-    "updatePaymentType",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updatePaymentType", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "paymentType_set_input",
@@ -16102,11 +15694,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: paymentType_bool_exp
     }>,
     selectorFn: (s: paymentType_mutation_response) => [...Sel],
-  ): $Field<
-    "updatePaymentTypes",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updatePaymentTypes", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "paymentType_set_input",
@@ -16180,11 +15768,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: subclassification_pk_columns_input
     }>,
     selectorFn: (s: subclassification) => [...Sel],
-  ): $Field<
-    "updateSubclassification",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateSubclassification", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "subclassification_set_input",
@@ -16212,11 +15796,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: subclassification_bool_exp
     }>,
     selectorFn: (s: subclassification_mutation_response) => [...Sel],
-  ): $Field<
-    "updateSubclassifications",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateSubclassifications", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "subclassification_set_input",
@@ -16562,11 +16142,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: userStatus_pk_columns_input
     }>,
     selectorFn: (s: userStatus) => [...Sel],
-  ): $Field<
-    "updateUserStatus",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateUserStatus", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "userStatus_set_input",
@@ -16594,11 +16170,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: userStatus_bool_exp
     }>,
     selectorFn: (s: userStatus_mutation_response) => [...Sel],
-  ): $Field<
-    "updateUserStatuses",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"updateUserStatuses", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "userStatus_set_input",
@@ -16740,11 +16312,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       where: booking_channel_bool_exp
     }>,
     selectorFn: (s: booking_channel_mutation_response) => [...Sel],
-  ): $Field<
-    "update_booking_channel",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"update_booking_channel", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "booking_channel_set_input",
@@ -16772,11 +16340,7 @@ export class mutation_root extends $Base<"mutation_root"> {
       pk_columns: booking_channel_pk_columns_input
     }>,
     selectorFn: (s: booking_channel) => [...Sel],
-  ): $Field<
-    "update_booking_channel_by_pk",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"update_booking_channel_by_pk", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         _set: "booking_channel_set_input",
@@ -18709,11 +18273,7 @@ export class query_root extends $Base<"query_root"> {
       where?: bookingStatus_bool_exp | null
     }>,
     selectorFn: (s: bookingStatus_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateBookingStatuses",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregateBookingStatuses", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregateBookingStatuses<Sel extends Selection<bookingStatus_aggregate>>(
     selectorFn: (s: bookingStatus_aggregate) => [...Sel],
   ): $Field<"aggregateBookingStatuses", GetOutput<Sel>, GetVariables<Sel>>
@@ -18799,11 +18359,7 @@ export class query_root extends $Base<"query_root"> {
       where?: classification_bool_exp | null
     }>,
     selectorFn: (s: classification_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateClassifications",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregateClassifications", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregateClassifications<Sel extends Selection<classification_aggregate>>(
     selectorFn: (s: classification_aggregate) => [...Sel],
   ): $Field<"aggregateClassifications", GetOutput<Sel>, GetVariables<Sel>>
@@ -19018,11 +18574,7 @@ export class query_root extends $Base<"query_root"> {
       where?: integrationType_bool_exp | null
     }>,
     selectorFn: (s: integrationType_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateIntegrationTypes",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregateIntegrationTypes", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregateIntegrationTypes<Sel extends Selection<integrationType_aggregate>>(
     selectorFn: (s: integrationType_aggregate) => [...Sel],
   ): $Field<"aggregateIntegrationTypes", GetOutput<Sel>, GetVariables<Sel>>
@@ -19366,11 +18918,7 @@ export class query_root extends $Base<"query_root"> {
       where?: normalizedType_bool_exp | null
     }>,
     selectorFn: (s: normalizedType_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateNormalizedTypes",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregateNormalizedTypes", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregateNormalizedTypes<Sel extends Selection<normalizedType_aggregate>>(
     selectorFn: (s: normalizedType_aggregate) => [...Sel],
   ): $Field<"aggregateNormalizedTypes", GetOutput<Sel>, GetVariables<Sel>>
@@ -19413,11 +18961,7 @@ export class query_root extends $Base<"query_root"> {
       where?: paymentStatus_bool_exp | null
     }>,
     selectorFn: (s: paymentStatus_aggregate) => [...Sel],
-  ): $Field<
-    "aggregatePaymentStatuses",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregatePaymentStatuses", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregatePaymentStatuses<Sel extends Selection<paymentStatus_aggregate>>(
     selectorFn: (s: paymentStatus_aggregate) => [...Sel],
   ): $Field<"aggregatePaymentStatuses", GetOutput<Sel>, GetVariables<Sel>>
@@ -19546,14 +19090,8 @@ export class query_root extends $Base<"query_root"> {
       where?: subclassification_bool_exp | null
     }>,
     selectorFn: (s: subclassification_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateSubclassifications",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
-  aggregateSubclassifications<
-    Sel extends Selection<subclassification_aggregate>,
-  >(
+  ): $Field<"aggregateSubclassifications", GetOutput<Sel>, GetVariables<Sel, Args>>
+  aggregateSubclassifications<Sel extends Selection<subclassification_aggregate>>(
     selectorFn: (s: subclassification_aggregate) => [...Sel],
   ): $Field<"aggregateSubclassifications", GetOutput<Sel>, GetVariables<Sel>>
   aggregateSubclassifications(arg1: any, arg2?: any) {
@@ -20032,11 +19570,7 @@ export class query_root extends $Base<"query_root"> {
       where?: booking_channel_bool_exp | null
     }>,
     selectorFn: (s: booking_channel_aggregate) => [...Sel],
-  ): $Field<
-    "booking_channel_aggregate",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"booking_channel_aggregate", GetOutput<Sel>, GetVariables<Sel, Args>>
   booking_channel_aggregate<Sel extends Selection<booking_channel_aggregate>>(
     selectorFn: (s: booking_channel_aggregate) => [...Sel],
   ): $Field<"booking_channel_aggregate", GetOutput<Sel>, GetVariables<Sel>>
@@ -20071,11 +19605,7 @@ export class query_root extends $Base<"query_root"> {
       name: string
     }>,
     selectorFn: (s: booking_channel) => [...Sel],
-  ): $Field<
-    "booking_channel_by_pk",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"booking_channel_by_pk", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -21299,11 +20829,7 @@ export class query_root extends $Base<"query_root"> {
       name: string
     }>,
     selectorFn: (s: subclassification) => [...Sel],
-  ): $Field<
-    "subclassification",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"subclassification", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -21336,11 +20862,7 @@ export class query_root extends $Base<"query_root"> {
       where?: subclassification_bool_exp | null
     }>,
     selectorFn: (s: subclassification) => [...Sel],
-  ): $Field<
-    "subclassifications",
-    Array<GetOutput<Sel>>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"subclassifications", Array<GetOutput<Sel>>, GetVariables<Sel, Args>>
   subclassifications<Sel extends Selection<subclassification>>(
     selectorFn: (s: subclassification) => [...Sel],
   ): $Field<"subclassifications", Array<GetOutput<Sel>>, GetVariables<Sel>>
@@ -22176,11 +21698,7 @@ export class subscription_root extends $Base<"subscription_root"> {
       where?: bookingStatus_bool_exp | null
     }>,
     selectorFn: (s: bookingStatus_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateBookingStatuses",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregateBookingStatuses", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregateBookingStatuses<Sel extends Selection<bookingStatus_aggregate>>(
     selectorFn: (s: bookingStatus_aggregate) => [...Sel],
   ): $Field<"aggregateBookingStatuses", GetOutput<Sel>, GetVariables<Sel>>
@@ -22266,11 +21784,7 @@ export class subscription_root extends $Base<"subscription_root"> {
       where?: classification_bool_exp | null
     }>,
     selectorFn: (s: classification_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateClassifications",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregateClassifications", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregateClassifications<Sel extends Selection<classification_aggregate>>(
     selectorFn: (s: classification_aggregate) => [...Sel],
   ): $Field<"aggregateClassifications", GetOutput<Sel>, GetVariables<Sel>>
@@ -22485,11 +21999,7 @@ export class subscription_root extends $Base<"subscription_root"> {
       where?: integrationType_bool_exp | null
     }>,
     selectorFn: (s: integrationType_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateIntegrationTypes",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregateIntegrationTypes", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregateIntegrationTypes<Sel extends Selection<integrationType_aggregate>>(
     selectorFn: (s: integrationType_aggregate) => [...Sel],
   ): $Field<"aggregateIntegrationTypes", GetOutput<Sel>, GetVariables<Sel>>
@@ -22833,11 +22343,7 @@ export class subscription_root extends $Base<"subscription_root"> {
       where?: normalizedType_bool_exp | null
     }>,
     selectorFn: (s: normalizedType_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateNormalizedTypes",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregateNormalizedTypes", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregateNormalizedTypes<Sel extends Selection<normalizedType_aggregate>>(
     selectorFn: (s: normalizedType_aggregate) => [...Sel],
   ): $Field<"aggregateNormalizedTypes", GetOutput<Sel>, GetVariables<Sel>>
@@ -22880,11 +22386,7 @@ export class subscription_root extends $Base<"subscription_root"> {
       where?: paymentStatus_bool_exp | null
     }>,
     selectorFn: (s: paymentStatus_aggregate) => [...Sel],
-  ): $Field<
-    "aggregatePaymentStatuses",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"aggregatePaymentStatuses", GetOutput<Sel>, GetVariables<Sel, Args>>
   aggregatePaymentStatuses<Sel extends Selection<paymentStatus_aggregate>>(
     selectorFn: (s: paymentStatus_aggregate) => [...Sel],
   ): $Field<"aggregatePaymentStatuses", GetOutput<Sel>, GetVariables<Sel>>
@@ -23013,14 +22515,8 @@ export class subscription_root extends $Base<"subscription_root"> {
       where?: subclassification_bool_exp | null
     }>,
     selectorFn: (s: subclassification_aggregate) => [...Sel],
-  ): $Field<
-    "aggregateSubclassifications",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
-  aggregateSubclassifications<
-    Sel extends Selection<subclassification_aggregate>,
-  >(
+  ): $Field<"aggregateSubclassifications", GetOutput<Sel>, GetVariables<Sel, Args>>
+  aggregateSubclassifications<Sel extends Selection<subclassification_aggregate>>(
     selectorFn: (s: subclassification_aggregate) => [...Sel],
   ): $Field<"aggregateSubclassifications", GetOutput<Sel>, GetVariables<Sel>>
   aggregateSubclassifications(arg1: any, arg2?: any) {
@@ -23499,11 +22995,7 @@ export class subscription_root extends $Base<"subscription_root"> {
       where?: booking_channel_bool_exp | null
     }>,
     selectorFn: (s: booking_channel_aggregate) => [...Sel],
-  ): $Field<
-    "booking_channel_aggregate",
-    GetOutput<Sel>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"booking_channel_aggregate", GetOutput<Sel>, GetVariables<Sel, Args>>
   booking_channel_aggregate<Sel extends Selection<booking_channel_aggregate>>(
     selectorFn: (s: booking_channel_aggregate) => [...Sel],
   ): $Field<"booking_channel_aggregate", GetOutput<Sel>, GetVariables<Sel>>
@@ -23538,11 +23030,7 @@ export class subscription_root extends $Base<"subscription_root"> {
       name: string
     }>,
     selectorFn: (s: booking_channel) => [...Sel],
-  ): $Field<
-    "booking_channel_by_pk",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"booking_channel_by_pk", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -24766,11 +24254,7 @@ export class subscription_root extends $Base<"subscription_root"> {
       name: string
     }>,
     selectorFn: (s: subclassification) => [...Sel],
-  ): $Field<
-    "subclassification",
-    GetOutput<Sel> | null,
-    GetVariables<Sel, Args>
-  > {
+  ): $Field<"subclassification", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
     const options = {
       argTypes: {
         name: "String!",
@@ -24803,11 +24287,7 @@ export class subscription_root extends $Base<"subscription_root"> {
       where?: subclassification_bool_exp | null
     }>,
     selectorFn: (s: subclassification) => [...Sel],
-  ): $Field<
-    "subclassifications",
-    Array<GetOutput<Sel>>,
-    GetVariables<Sel, Args>
-  >
+  ): $Field<"subclassifications", Array<GetOutput<Sel>>, GetVariables<Sel, Args>>
   subclassifications<Sel extends Selection<subclassification>>(
     selectorFn: (s: subclassification) => [...Sel],
   ): $Field<"subclassifications", Array<GetOutput<Sel>>, GetVariables<Sel>>
@@ -26049,10 +25529,7 @@ export class team extends $Base<"team"> {
     return this.$_select("bookings_aggregate", options as any) as any
   }
 
-  get commissionPercentage(): $Field<
-    "commissionPercentage",
-    CustomScalar<numeric> | null
-  > {
+  get commissionPercentage(): $Field<"commissionPercentage", CustomScalar<numeric> | null> {
     return this.$_select("commissionPercentage") as any
   }
 
@@ -26858,10 +26335,7 @@ export class team extends $Base<"team"> {
     return this.$_select("stripeId") as any
   }
 
-  get stripeSubscriptionItemId(): $Field<
-    "stripeSubscriptionItemId",
-    string | null
-  > {
+  get stripeSubscriptionItemId(): $Field<"stripeSubscriptionItemId", string | null> {
     return this.$_select("stripeSubscriptionItemId") as any
   }
 
@@ -27392,10 +26866,7 @@ export class team_max_fields extends $Base<"team_max_fields"> {
     return this.$_select("address") as any
   }
 
-  get commissionPercentage(): $Field<
-    "commissionPercentage",
-    CustomScalar<numeric> | null
-  > {
+  get commissionPercentage(): $Field<"commissionPercentage", CustomScalar<numeric> | null> {
     return this.$_select("commissionPercentage") as any
   }
 
@@ -27419,10 +26890,7 @@ export class team_max_fields extends $Base<"team_max_fields"> {
     return this.$_select("stripeId") as any
   }
 
-  get stripeSubscriptionItemId(): $Field<
-    "stripeSubscriptionItemId",
-    string | null
-  > {
+  get stripeSubscriptionItemId(): $Field<"stripeSubscriptionItemId", string | null> {
     return this.$_select("stripeSubscriptionItemId") as any
   }
 
@@ -27451,10 +26919,7 @@ export class team_min_fields extends $Base<"team_min_fields"> {
     return this.$_select("address") as any
   }
 
-  get commissionPercentage(): $Field<
-    "commissionPercentage",
-    CustomScalar<numeric> | null
-  > {
+  get commissionPercentage(): $Field<"commissionPercentage", CustomScalar<numeric> | null> {
     return this.$_select("commissionPercentage") as any
   }
 
@@ -27478,10 +26943,7 @@ export class team_min_fields extends $Base<"team_min_fields"> {
     return this.$_select("stripeId") as any
   }
 
-  get stripeSubscriptionItemId(): $Field<
-    "stripeSubscriptionItemId",
-    string | null
-  > {
+  get stripeSubscriptionItemId(): $Field<"stripeSubscriptionItemId", string | null> {
     return this.$_select("stripeSubscriptionItemId") as any
   }
 
@@ -27718,10 +27180,7 @@ export class team_sum_fields extends $Base<"team_sum_fields"> {
     super("team_sum_fields")
   }
 
-  get commissionPercentage(): $Field<
-    "commissionPercentage",
-    CustomScalar<numeric> | null
-  > {
+  get commissionPercentage(): $Field<"commissionPercentage", CustomScalar<numeric> | null> {
     return this.$_select("commissionPercentage") as any
   }
 }
@@ -29167,10 +28626,7 @@ export class user extends $Base<"user"> {
     return this.$_select("sub") as any
   }
 
-  get trialExpiryAt(): $Field<
-    "trialExpiryAt",
-    CustomScalar<timestamptz> | null
-  > {
+  get trialExpiryAt(): $Field<"trialExpiryAt", CustomScalar<timestamptz> | null> {
     return this.$_select("trialExpiryAt") as any
   }
 }
@@ -29321,10 +28777,7 @@ export class user_max_fields extends $Base<"user_max_fields"> {
     return this.$_select("sub") as any
   }
 
-  get trialExpiryAt(): $Field<
-    "trialExpiryAt",
-    CustomScalar<timestamptz> | null
-  > {
+  get trialExpiryAt(): $Field<"trialExpiryAt", CustomScalar<timestamptz> | null> {
     return this.$_select("trialExpiryAt") as any
   }
 }
@@ -29357,10 +28810,7 @@ export class user_min_fields extends $Base<"user_min_fields"> {
     return this.$_select("sub") as any
   }
 
-  get trialExpiryAt(): $Field<
-    "trialExpiryAt",
-    CustomScalar<timestamptz> | null
-  > {
+  get trialExpiryAt(): $Field<"trialExpiryAt", CustomScalar<timestamptz> | null> {
     return this.$_select("trialExpiryAt") as any
   }
 }
@@ -30284,10 +29734,7 @@ export function query<Sel extends Selection<$RootTypes.query>>(
 export function query<Sel extends Selection<$RootTypes.query>>(
   selectFn: (q: $RootTypes.query) => [...Sel],
 ): TypedDocumentNode<GetOutput<Sel>, Simplify<GetVariables<Sel>>>
-export function query<Sel extends Selection<$RootTypes.query>>(
-  name: any,
-  selectFn?: any,
-) {
+export function query<Sel extends Selection<$RootTypes.query>>(name: any, selectFn?: any) {
   if (!selectFn) {
     selectFn = name
     name = ""
@@ -30307,20 +29754,14 @@ export function mutation<Sel extends Selection<$RootTypes.mutation>>(
 export function mutation<Sel extends Selection<$RootTypes.mutation>>(
   selectFn: (q: $RootTypes.mutation) => [...Sel],
 ): TypedDocumentNode<GetOutput<Sel>, Simplify<GetVariables<Sel>>>
-export function mutation<Sel extends Selection<$RootTypes.query>>(
-  name: any,
-  selectFn?: any,
-) {
+export function mutation<Sel extends Selection<$RootTypes.query>>(name: any, selectFn?: any) {
   if (!selectFn) {
     selectFn = name
     name = ""
   }
-  let field = new $Field<"mutation", GetOutput<Sel>, GetVariables<Sel>>(
-    "mutation",
-    {
-      selection: selectFn(new $Root.mutation()),
-    },
-  )
+  let field = new $Field<"mutation", GetOutput<Sel>, GetVariables<Sel>>("mutation", {
+    selection: selectFn(new $Root.mutation()),
+  })
   const str = fieldToQuery(`mutation ${name}`, field)
 
   return gql(str) as any
@@ -30333,20 +29774,14 @@ export function subscription<Sel extends Selection<$RootTypes.subscription>>(
 export function subscription<Sel extends Selection<$RootTypes.subscription>>(
   selectFn: (q: $RootTypes.subscription) => [...Sel],
 ): TypedDocumentNode<GetOutput<Sel>, Simplify<GetVariables<Sel>>>
-export function subscription<Sel extends Selection<$RootTypes.query>>(
-  name: any,
-  selectFn?: any,
-) {
+export function subscription<Sel extends Selection<$RootTypes.query>>(name: any, selectFn?: any) {
   if (!selectFn) {
     selectFn = name
     name = ""
   }
-  let field = new $Field<"subscription", GetOutput<Sel>, GetVariables<Sel>>(
-    "subscription",
-    {
-      selection: selectFn(new $Root.subscription()),
-    },
-  )
+  let field = new $Field<"subscription", GetOutput<Sel>, GetVariables<Sel>>("subscription", {
+    selection: selectFn(new $Root.subscription()),
+  })
   const str = fieldToQuery(`subscription ${name}`, field)
 
   return gql(str) as any
