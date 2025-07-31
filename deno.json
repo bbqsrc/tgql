@@ -25,7 +25,7 @@
     "strict": true,
     "noImplicitAny": false
   },
-  "lint" : {
+  "lint": {
     "exclude": ["test/*.bad.ts"]
   },
   "test": {
@@ -54,5 +54,10 @@
     "@std/fs": "jsr:@std/fs@^1.0.19",
     "@std/path": "jsr:@std/path@^1.1.1",
     "graphql": "https://esm.sh/graphql@16.11.0?target=deno"
+  },
+  "fmt": {
+    "semiColons": false,
+    "singleQuote": false,
+    "lineWidth": 120
   }
 }

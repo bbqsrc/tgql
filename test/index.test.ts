@@ -1,17 +1,17 @@
-import { expandGlob } from "@std/fs";
-import { basename, dirname, join } from "@std/path";
-import { compile } from '../src/compile-api.ts';
+import { expandGlob } from "@std/fs"
+import { basename, dirname, join } from "jsr:@std/path"
+import { compile } from "../src/compile-api.ts"
 
-const __dirname = dirname(new URL(import.meta.url).pathname);
+const __dirname = dirname(new URL(import.meta.url).pathname)
 
 async function globSync(pattern: string, cwd: string): Promise<string[]> {
-  const results: string[] = [];
+  const results: string[] = []
   for await (const entry of expandGlob(pattern, { root: cwd })) {
     if (entry.isFile) {
-      results.push(entry.path);
+      results.push(entry.path)
     }
   }
-  return results;
+  return results
 }
 
 // test dir structure
@@ -44,60 +44,60 @@ function compileTs(_file: string) {
     cwd: __dirname,
     stdout: "piped",
     stderr: "piped",
-  });
-  
-  return command.outputSync();
+  })
+
+  return command.outputSync()
 }
 
-const schemas: string[] = [];
+const schemas: string[] = []
 for await (const entry of expandGlob("examples/*.graphql", { root: __dirname })) {
   if (entry.isFile) {
-    schemas.push(entry.path);
+    schemas.push(entry.path)
   }
 }
 
 for (const schema of schemas) {
-  const schemaName = basename(schema);
-  const schemaCoreName = basename(schema).split('.')[0];
+  const schemaName = basename(schema)
+  const schemaCoreName = basename(schema).split(".")[0]
 
   Deno.test(`schema ${schemaName}`, async (t) => {
     // Prepare the schema compilation
     await t.step("compile schema", async () => {
-      let extraOptionsPath = join(__dirname, `examples`, `${schemaName}.opts.json`);
+      let extraOptionsPath = join(__dirname, `examples`, `${schemaName}.opts.json`)
 
-      let extraOptions;
+      let extraOptions
       try {
-        const opts = await Deno.readTextFile(extraOptionsPath);
-        extraOptions = JSON.parse(opts);
+        const opts = await Deno.readTextFile(extraOptionsPath)
+        extraOptions = JSON.parse(opts)
       } catch (_e) {
-        extraOptions = {};
+        extraOptions = {}
       }
 
       await compile({
         schema: schema,
-        output: join(__dirname, 'examples', `${schemaName}.api.ts`),
+        output: join(__dirname, "examples", `${schemaName}.api.ts`),
         includeTypename: true,
         ...extraOptions,
-      });
-    });
+      })
+    })
 
     await t.step("typechecks", () => {
-      const output = compileTs(`${schema}.api.ts`);
+      const output = compileTs(`${schema}.api.ts`)
       if (output.code !== 0) {
-        throw new Error(`Type check failed: ${new TextDecoder().decode(output.stderr)}`);
+        throw new Error(`Type check failed: ${new TextDecoder().decode(output.stderr)}`)
       }
-    });
+    })
 
-    const goodExamples = await globSync(`./examples/*-${schemaCoreName}.good.ts`, __dirname);
-    
+    const goodExamples = await globSync(`./examples/*-${schemaCoreName}.good.ts`, __dirname)
+
     for (const example of goodExamples) {
-      const exampleName = basename(example);
+      const exampleName = basename(example)
       await t.step(`compiles with example ${exampleName}`, () => {
-        const res = compileTs(example);
+        const res = compileTs(example)
         if (res.code !== 0) {
-          throw new Error(`Compilation failed: ${new TextDecoder().decode(res.stderr)}`);
+          throw new Error(`Compilation failed: ${new TextDecoder().decode(res.stderr)}`)
         }
-      });
+      })
 
       // Skip the require/verification step for now as it needs more complex conversion
       // await t.step(`runs the verifications in ${exampleName}`, async () => {
@@ -106,22 +106,22 @@ for (const schema of schemas) {
       // });
     }
 
-    const badExamples = await globSync(`./examples/*-${schemaCoreName}.ts.bad`, __dirname);
-    const tmpDir = Deno.makeTempDirSync({ prefix: 'bad-examples-' });
+    const badExamples = await globSync(`./examples/*-${schemaCoreName}.ts.bad`, __dirname)
+    const tmpDir = Deno.makeTempDirSync({ prefix: "bad-examples-" })
 
     for (const example of badExamples) {
       // Copy the bad example to a temporary directory
-      const tmpExamplePath = join(tmpDir, basename(example));
-      Deno.copyFileSync(example, tmpExamplePath);
+      const tmpExamplePath = join(tmpDir, basename(example))
+      Deno.copyFileSync(example, tmpExamplePath)
 
-      const exampleName = basename(example);
+      const exampleName = basename(example)
       await t.step(`compile fails with example ${exampleName}`, () => {
-        const res = compileTs(tmpExamplePath);
+        const res = compileTs(tmpExamplePath)
         if (res.code === 0) {
-          throw new Error('bad example compiled with no errors');
+          throw new Error("bad example compiled with no errors")
         }
         // Success - the compilation failed as expected
-      });
+      })
     }
-  });
+  })
 }

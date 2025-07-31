@@ -1,10 +1,10 @@
-import { all, query, $, $$ } from './countries.graphql.api.ts'
-import { verify } from './verify.ts'
+import { $, $$, all, query } from "./countries.graphql.api.ts"
+import { verify } from "./verify.ts"
 
 // Allow both overloads
-let twoCountries = query(q => [
-  q.countries(c => [c.name, c.capital]).as('c1'),
-  q.countries({}, c => [c.name, c.capital]).as('c2'),
+let twoCountries = query((q) => [
+  q.countries((c) => [c.name, c.capital]).as("c1"),
+  q.countries({}, (c) => [c.name, c.capital]).as("c2"),
 ])
 
 let twoCountriesString = `{
@@ -18,12 +18,12 @@ let twoCountriesString = `{
   }
 }`
 
-let countryQuery = query(q => [
-  q.countries({ filter: { continent: { eq: $('continentCode') } } }, c => [
+let countryQuery = query((q) => [
+  q.countries({ filter: { continent: { eq: $("continentCode") } } }, (c) => [
     c.code,
     c.capital,
     c.name,
-    c.languages(l => [l.name]),
+    c.languages((l) => [l.name]),
   ]),
 ])
 
@@ -39,12 +39,12 @@ query ($continentCode: String) {
   }
 }`
 
-let countryQueryRequiredVar = query(q => [
-  q.countries({ filter: { continent: { eq: $$('continentCode') } } }, c => [
+let countryQueryRequiredVar = query((q) => [
+  q.countries({ filter: { continent: { eq: $$("continentCode") } } }, (c) => [
     c.code,
     c.capital,
     c.name,
-    c.languages(l => [l.name]),
+    c.languages((l) => [l.name]),
   ]),
 ])
 
@@ -60,7 +60,7 @@ query ($continentCode: String!) {
   }
 }`
 
-let namedQuery = query('MyName', q => [q.continent({ code: $('test') }, c => [c.code, c.name])])
+let namedQuery = query("MyName", (q) => [q.continent({ code: $("test") }, (c) => [c.code, c.name])])
 
 let namedQueryString = `
 query MyName($test: ID!) {
@@ -71,7 +71,7 @@ query MyName($test: ID!) {
 }
 `
 
-let allQuery = query('AllFields', q => [q.countries(all)])
+let allQuery = query("AllFields", (q) => [q.countries(all)])
 
 let allQueryString = `
 query AllFields {
@@ -89,8 +89,8 @@ query AllFields {
 }
 `
 
-let nestedAllQuery = query('NestedAllFields', q => [
-  q.countries(c => [c.capital, c.languages(all)]),
+let nestedAllQuery = query("NestedAllFields", (q) => [
+  q.countries((c) => [c.capital, c.languages(all)]),
 ])
 
 let nestedAllQueryString = `
@@ -108,8 +108,8 @@ query NestedAllFields {
 }
 `
 
-let doubleAllQuery = query('DoubleAllFields', q => [
-  q.countries(c => [...all(c), c.languages(all)]),
+let doubleAllQuery = query("DoubleAllFields", (q) => [
+  q.countries((c) => [...all(c), c.languages(all)]),
 ])
 
 let doubleAllQueryString = `
@@ -135,8 +135,8 @@ query DoubleAllFields {
 }
 `
 
-let filterVariableQuery = query('FilterVariable', q => [
-  q.countries({ filter: $('filter') }, c => [c.capital, c.code]),
+let filterVariableQuery = query("FilterVariable", (q) => [
+  q.countries({ filter: $("filter") }, (c) => [c.capital, c.code]),
 ])
 
 let filterVariableQueryString = `
@@ -152,7 +152,7 @@ export default [
   verify({
     query: twoCountries,
     variables: {},
-    schemaPath: 'countries.graphql',
+    schemaPath: "countries.graphql",
     string: twoCountriesString,
   }),
   verify({
@@ -160,50 +160,50 @@ export default [
     variables: {
       continentCode: null,
     },
-    schemaPath: 'countries.graphql',
+    schemaPath: "countries.graphql",
     string: countryQueryString,
   }),
   verify({
     query: countryQueryRequiredVar,
     variables: {
-      continentCode: 'x',
+      continentCode: "x",
     },
-    schemaPath: 'countries.graphql',
+    schemaPath: "countries.graphql",
     string: countryQueryStringRequired,
   }),
   verify({
     query: namedQuery,
     string: namedQueryString,
-    schemaPath: 'countries.graphql',
+    schemaPath: "countries.graphql",
     variables: {
-      test: 'x',
+      test: "x",
     },
   }),
   verify({
     query: allQuery,
     string: allQueryString,
-    schemaPath: 'countries.graphql',
+    schemaPath: "countries.graphql",
     variables: {},
   }),
   verify({
     query: nestedAllQuery,
     string: nestedAllQueryString,
-    schemaPath: 'countries.graphql',
+    schemaPath: "countries.graphql",
     variables: {},
   }),
   verify({
     query: doubleAllQuery,
     string: doubleAllQueryString,
-    schemaPath: 'countries.graphql',
+    schemaPath: "countries.graphql",
     variables: {},
   }),
   verify({
     query: filterVariableQuery,
     string: filterVariableQueryString,
-    schemaPath: 'countries.graphql',
+    schemaPath: "countries.graphql",
     variables: {
       filter: {
-        code: { eq: 'x' },
+        code: { eq: "x" },
       },
     },
   }),

@@ -1,6 +1,8 @@
 # tgql
 
-A TypeScript code generator that creates type-safe GraphQL query builders from GraphQL schemas. The generated APIs replace `gql` query strings with pure TypeScript code, compatible with TypedDocumentNode libraries like Apollo Client, Urql, and graphql-request.
+A TypeScript code generator that creates type-safe GraphQL query builders from GraphQL schemas. The generated APIs
+replace `gql` query strings with pure TypeScript code, compatible with TypedDocumentNode libraries like Apollo Client,
+Urql, and graphql-request.
 
 ## Installation
 
@@ -55,17 +57,18 @@ The generated API exports `query`, `mutation`, `subscription` to access the sche
 The `query` function gives us access to the root `query` object of our schema:
 
 ```typescript
-import { query } from './generated-api.ts'
+import { query } from "./generated-api.ts"
 
-const continentQuery = query(q => [
-  q.continents(c => [
+const continentQuery = query((q) => [
+  q.continents((c) => [
     c.name,
     c.code,
   ]),
 ])
 ```
 
-The above code will generate a query of type `TypedDocumentNode<{continents: Array<{name: string, code: string}>}, {}>` which corresponds to the following GraphQL query string:
+The above code will generate a query of type `TypedDocumentNode<{continents: Array<{name: string, code: string}>}, {}>`
+which corresponds to the following GraphQL query string:
 
 ```graphql
 query {
@@ -81,19 +84,20 @@ query {
 We can use input variables using the `$` helper. Variable types are inferred automatically:
 
 ```typescript
-import { $, query } from './generated-api.ts'
+import { $, query } from "./generated-api.ts"
 
-const countryQuery = query(q => [
-  q.countries({ filter: { continent: { eq: $('continentCode') } } }, c => [
+const countryQuery = query((q) => [
+  q.countries({ filter: { continent: { eq: $("continentCode") } } }, (c) => [
     c.code,
     c.capital,
     c.name,
-    c.languages(l => [l.name]),
+    c.languages((l) => [l.name]),
   ]),
 ])
 ```
 
-This will generate `TypedDocumentNode<{ countries: Array<{...}>}, { continentCode?: string | null | undefined }>`, a typed document node that includes the input variable `continentCode`.
+This will generate `TypedDocumentNode<{ countries: Array<{...}>}, { continentCode?: string | null | undefined }>`, a
+typed document node that includes the input variable `continentCode`.
 
 ### Variable Types
 
@@ -104,10 +108,10 @@ The generated API provides two variable creation functions:
 
 ```typescript
 // Optional variable (allows null)
-const optionalVar = $('maybeString') // Variable<string | null | undefined, 'maybeString', undefined>
+const optionalVar = $("maybeString") // Variable<string | null | undefined, 'maybeString', undefined>
 
 // Required variable (forces non-null)
-const requiredVar = $$('mustHaveString') // Variable<string, 'mustHaveString', true>
+const requiredVar = $$("mustHaveString") // Variable<string, 'mustHaveString', true>
 ```
 
 The GraphQL version of the country query above would be:
@@ -127,12 +131,13 @@ query ($continentCode: String) {
 
 ## Using queries
 
-The queries written above can be used with any client library that supports TypedDocumentNode. For example, if using Apollo's `useQuery`, we would write the following:
+The queries written above can be used with any client library that supports TypedDocumentNode. For example, if using
+Apollo's `useQuery`, we would write the following:
 
 ```typescript
 const CountryListComponent = () => {
   const continents = useQuery(continentQuery)
-  const [continent, setContinent] = useState('EU')
+  const [continent, setContinent] = useState("EU")
 
   const countryList = useQuery(countryQuery, {
     variables: {
@@ -177,11 +182,12 @@ deno run build
 
 This project is licensed under either of
 
- * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
 
 ### Acknowledgements
 
-This project is originally a fork of [typed-graphql-builder](https://github.com/typed-graphql-builder/typed-graphql-builder) by Gjorgji Kjosev.
+This project is originally a fork of
+[typed-graphql-builder](https://github.com/typed-graphql-builder/typed-graphql-builder) by Gjorgji Kjosev.

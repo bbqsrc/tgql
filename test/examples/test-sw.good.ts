@@ -1,22 +1,22 @@
-import { $, query, type Node, type OutputTypeOf, type QueryOutputType } from './sw.graphql.api.ts'
-import { verify } from './verify.ts'
+import { $, type Node, type OutputTypeOf, query, type QueryOutputType } from "./sw.graphql.api.ts"
+import { verify } from "./verify.ts"
 
-let planetQuery = query(q => [
-  q.planet({ id: $('planet_id') }, p => [
+let planetQuery = query((q) => [
+  q.planet({ id: $("planet_id") }, (p) => [
     //
     p.id,
     p.name,
     p.population,
-    p.terrains.as('terrain'),
+    p.terrains.as("terrain"),
   ]),
 ])
 
 type NodeType = OutputTypeOf<Node>
 
 export function typechecks(nt: NodeType) {
-  if (nt.__typename === 'Person') {
+  if (nt.__typename === "Person") {
     console.log(nt.birthYear)
-  } else if (nt.__typename === 'Planet') {
+  } else if (nt.__typename === "Planet") {
     console.log(nt.climates)
   }
 }
@@ -30,9 +30,9 @@ let planetQueryString = `query ($planet_id: ID) {
   }
 }`
 
-const nodeQuery = query(q => [
-  q.node({ id: 'sample' }, n => [
-    n.$on('Person', p => [
+const nodeQuery = query((q) => [
+  q.node({ id: "sample" }, (n) => [
+    n.$on("Person", (p) => [
       //
       p.id,
       p.name,
@@ -49,11 +49,11 @@ const nodeQueryString = `query {
   }
 }`
 
-const multiChoiceQuery = query(q => [
-  q.node({ id: 'x' }, n => [
+const multiChoiceQuery = query((q) => [
+  q.node({ id: "x" }, (n) => [
     n.id,
-    n.$on('Person', p => [p.birthYear, p.__typename]),
-    n.$on('Planet', p => [p.climates, p.__typename]),
+    n.$on("Person", (p) => [p.birthYear, p.__typename]),
+    n.$on("Planet", (p) => [p.climates, p.__typename]),
   ]),
 ])
 
@@ -68,9 +68,9 @@ export function test() {
     return
   }
   switch (personOrPlanet.__typename) {
-    case 'Person':
+    case "Person":
       return personOrPlanet.birthYear
-    case 'Planet':
+    case "Planet":
       return personOrPlanet.climates?.toString()
   }
 }
@@ -79,15 +79,15 @@ export default [
   verify({
     query: planetQuery,
     string: planetQueryString,
-    schemaPath: 'sw.graphql',
+    schemaPath: "sw.graphql",
     variables: {
-      planet_id: 'str',
+      planet_id: "str",
     },
   }),
   verify({
     query: nodeQuery,
     string: nodeQueryString,
-    schemaPath: 'sw.graphql',
+    schemaPath: "sw.graphql",
     variables: {},
   }),
 ]

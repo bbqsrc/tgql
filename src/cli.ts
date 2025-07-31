@@ -1,8 +1,8 @@
-import { parseArgs } from '@std/cli'
-import denoConfig from '../deno.json' with { type: 'json' }
-import { compile } from './compile-api.ts'
-import type { Args } from './compile-options.ts'
-import { UserFacingError } from './user-error.ts'
+import { parseArgs } from "@std/cli"
+import denoConfig from "../deno.json" with { type: "json" }
+import { compile } from "./compile-api.ts"
+import type { Args } from "./compile-options.ts"
+import { UserFacingError } from "./user-error.ts"
 
 const USAGE = `Compiles a GraphQL schema to a TypeScript API
 
@@ -36,20 +36,20 @@ function showVersion() {
 
 async function main() {
   const parsed = parseArgs(Deno.args, {
-    string: ['output', 'header', 'bearer', 'scalar'],
-    boolean: ['include-typename', 'help', 'version'],
-    collect: ['header', 'scalar'],
+    string: ["output", "header", "bearer", "scalar"],
+    boolean: ["include-typename", "help", "version"],
+    collect: ["header", "scalar"],
     default: {
-      'include-typename': false,
+      "include-typename": false,
       header: [],
-      scalar: []
+      scalar: [],
     },
     alias: {
-      h: 'help',
-      v: 'version',
-      o: 'output',
-      s: 'scalar'
-    }
+      h: "help",
+      v: "version",
+      o: "output",
+      s: "scalar",
+    },
   })
 
   if (parsed.help) {
@@ -64,17 +64,17 @@ async function main() {
 
   // Get schema from positional arguments
   const schema = parsed._[0]
-  
+
   // Validate required arguments
   if (!schema) {
-    console.error('Error: schema argument is required')
-    console.error('Use --help for usage information')
+    console.error("Error: schema argument is required")
+    console.error("Use --help for usage information")
     Deno.exit(1)
   }
 
   if (!parsed.output) {
-    console.error('Error: --output is required')
-    console.error('Use --help for usage information')
+    console.error("Error: --output is required")
+    console.error("Use --help for usage information")
     Deno.exit(1)
   }
 
@@ -85,7 +85,7 @@ async function main() {
     headers: Array.isArray(parsed.header) ? parsed.header : (parsed.header ? [parsed.header] : []),
     bearer: parsed.bearer as string | undefined,
     scalar: Array.isArray(parsed.scalar) ? parsed.scalar : (parsed.scalar ? [parsed.scalar] : []),
-    includeTypename: parsed['include-typename'] as boolean
+    includeTypename: parsed["include-typename"] as boolean,
   }
 
   try {

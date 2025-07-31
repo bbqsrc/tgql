@@ -1,7 +1,7 @@
 export const postamble = (operations: string[]) =>
   operations
     .map(
-      op => `
+      (op) => `
 export function ${op}<Sel extends Selection<$RootTypes.${op}>>(
   name: string,
   selectFn: (q: $RootTypes.${op}) => [...Sel]
@@ -21,6 +21,6 @@ export function ${op}<Sel extends Selection<$RootTypes.query>>(name: any, select
 
   return gql(str) as any
 }
-`
+`,
     )
-    .join('\n')
+    .join("\n")

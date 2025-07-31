@@ -1,12 +1,12 @@
-import { $, query } from './api-sw.ts'
+import { $, query } from "./api-sw.ts"
 
-const planetQuery = query(q => [
-  q.planet({ id: $('planet_id') }, p => [
+const planetQuery = query((q) => [
+  q.planet({ id: $("planet_id") }, (p) => [
     //
     p.id,
     p.name,
     p.population,
-    p.terrains.as('terrain'),
+    p.terrains.as("terrain"),
   ]),
 ])
 

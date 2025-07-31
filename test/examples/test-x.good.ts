@@ -1,56 +1,56 @@
-import { verify } from './verify.ts'
-import { query, order_by, $, $$, mutation } from './x.graphql.api.ts'
+import { verify } from "./verify.ts"
+import { $, $$, mutation, order_by, query } from "./x.graphql.api.ts"
 
-let orderByTest = query(q => [
+let orderByTest = query((q) => [
   q.bookings(
     {
       order_by: [
         {
-          bookerName: $$('myvar'),
-          checkOut: $('optional'),
+          bookerName: $$("myvar"),
+          checkOut: $("optional"),
           bookedAt: order_by.desc,
         },
       ],
     },
-    o => [o.id, o.guestName, o.nights, o.bookerName]
+    (o) => [o.id, o.guestName, o.nights, o.bookerName],
   ),
 ])
 
-let genericWhere = query(q => [
+let genericWhere = query((q) => [
   // does not seem to generate the correct variable type
-  q.aggregateBookings({ where: $('where') }, a => [a.aggregate(a => [a.count({})])]),
+  q.aggregateBookings({ where: $("where") }, (a) => [a.aggregate((a) => [a.count({})])]),
 ])
 
-let bookingsBetween = query(q => [
+let bookingsBetween = query((q) => [
   q.bookings(
     {
       where: {
         _and: [
-          { createdAt: { _gte: $$('startDate') } },
-          { createdAt: { _lte: $('endDate') } },
+          { createdAt: { _gte: $$("startDate") } },
+          { createdAt: { _lte: $("endDate") } },
         ] as const,
       },
     },
-    b => [
+    (b) => [
       // select fields
       b.bookedAt,
       b.bookerName,
       b.nights,
-      b.connection(c => [
+      b.connection((c) => [
         // nested fields
         c.id,
         c.createdAt,
       ]),
-    ]
+    ],
   ),
 ])
 
-const upsertBookingChannelMutation = mutation(m => [
+const upsertBookingChannelMutation = mutation((m) => [
   m.insert_booking_channel_one(
     {
-      object: $$('bc'),
+      object: $$("bc"),
     },
-    b => [b.name]
+    (b) => [b.name],
   ),
 ])
 
@@ -77,15 +77,15 @@ let orderByTestString = `query ($myvar: order_by!, $optional: order_by) {
   }
 }`
 
-const nullableArgument = mutation(m => [
+const nullableArgument = mutation((m) => [
   m.updateBooking(
     {
-      pk_columns: { id: $$('id') },
+      pk_columns: { id: $$("id") },
       _set: {
         bookedAt: null,
       },
     },
-    r => [r.id]
+    (r) => [r.id],
   ),
 ])
 
@@ -98,7 +98,7 @@ const nullableArgumentString = `mutation ($id: uuid!) {
 export default [
   verify({
     query: orderByTest,
-    schemaPath: 'x.graphql',
+    schemaPath: "x.graphql",
     string: orderByTestString,
     variables: {
       myvar: order_by.asc_nulls_first,
@@ -107,23 +107,23 @@ export default [
   verify({
     query: bookingsBetween,
     variables: {
-      startDate: '2022-01-01',
-      endDate: '2022-12-30',
+      startDate: "2022-01-01",
+      endDate: "2022-12-30",
     },
-    schemaPath: 'x.graphql',
+    schemaPath: "x.graphql",
     string: bookingsBetweenString,
   }),
   verify({
     query: upsertBookingChannelMutation,
-    variables: { bc: { name: 'hello' } },
-    schemaPath: 'x.graphql',
+    variables: { bc: { name: "hello" } },
+    schemaPath: "x.graphql",
   }),
   verify({
     query: nullableArgument,
     variables: {
-      id: 'abc',
+      id: "abc",
     },
-    schemaPath: 'x.graphql',
+    schemaPath: "x.graphql",
     string: nullableArgumentString,
   }),
 
@@ -131,9 +131,9 @@ export default [
     query: genericWhere,
     variables: {
       where: {
-        createdAt: { _eq: '2024-01-01' },
+        createdAt: { _eq: "2024-01-01" },
       },
     },
-    schemaPath: 'x.graphql',
+    schemaPath: "x.graphql",
   }),
 ]

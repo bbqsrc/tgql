@@ -1,45 +1,45 @@
-import { verify } from './verify.ts'
-import { query, mutation, SpecialSkills, fragment, Card, $$, $ } from './zeus.graphql.api.ts'
+import { verify } from "./verify.ts"
+import { $, $$, Card, fragment, mutation, query, SpecialSkills } from "./zeus.graphql.api.ts"
 
-const cardFragment = fragment(Card, c => [
+const cardFragment = fragment(Card, (c) => [
   c.Attack, //
-  c.Defense.as('def'),
+  c.Defense.as("def"),
 ])
 
-let tq = query(q => [
-  q.cardById({ cardId: $$('cid') }, c => [
+let tq = query((q) => [
+  q.cardById({ cardId: $$("cid") }, (c) => [
     ...cardFragment,
-    c.attack({ cardID: $('cids') }, aCards => [
+    c.attack({ cardID: $("cids") }, (aCards) => [
       aCards.Attack, //
       aCards.Defense,
     ]),
   ]),
 
   q
-    .cardById({ cardId: $('cid2') }, c => [
+    .cardById({ cardId: $("cid2") }, (c) => [
       ...cardFragment,
-      c.attack({ cardID: $('cids2') }, aCards => [
+      c.attack({ cardID: $("cids2") }, (aCards) => [
         aCards.Attack, //
         aCards.Defense,
       ]),
     ])
-    .as('second'),
+    .as("second"),
 
-  q.drawCard(c => [
+  q.drawCard((c) => [
     c.Attack, //
-    c.cardImage(ci => [
+    c.cardImage((ci) => [
       ci.bucket, //
       ci.region,
       ci.key,
     ]),
   ]),
 
-  q.drawChangeCard(cc => [
-    cc.$on('EffectCard', sc => [
+  q.drawChangeCard((cc) => [
+    cc.$on("EffectCard", (sc) => [
       sc.name, //
       sc.effectSize,
     ]),
-    cc.$on('SpecialCard', sc => [
+    cc.$on("SpecialCard", (sc) => [
       sc.name, //
       sc.effect,
     ]),
@@ -83,18 +83,18 @@ let tqString = `query ($cid: String!, $cids: [String!]!, $cid2: String, $cids2: 
   }
 }`
 
-let tm = mutation(m => [
+let tm = mutation((m) => [
   m.addCard(
     {
       card: {
         Attack: 1,
         Defense: 2,
-        name: 'Hi',
-        description: 'Lo',
-        skills: $('skills'),
+        name: "Hi",
+        description: "Lo",
+        skills: $("skills"),
       },
     },
-    c => [c.Attack, c.Defense, c.Children]
+    (c) => [c.Attack, c.Defense, c.Children],
   ),
 ])
 
@@ -109,18 +109,18 @@ mutation ($skills: [SpecialSkills!]) {
   }
 }`
 
-let tmWithoutVariable = mutation(m => [
+let tmWithoutVariable = mutation((m) => [
   m.addCard(
     {
       card: {
         Attack: 1,
         Defense: 2,
-        name: 'Hi',
-        description: 'Lo',
+        name: "Hi",
+        description: "Lo",
         skills: [SpecialSkills.FIRE],
       },
     },
-    c => [c.Attack, c.Defense, c.Children]
+    (c) => [c.Attack, c.Defense, c.Children],
   ),
 ])
 
@@ -135,16 +135,16 @@ mutation {
   }
 }`
 
-let nestedVariable = query(q => [
-  q.drawCard(c => [c.attack({ cardID: $('cardID') }, s => [s.name])]),
+let nestedVariable = query((q) => [
+  q.drawCard((c) => [c.attack({ cardID: $("cardID") }, (s) => [s.name])]),
 ])
 
-let omitDefaultsTest = mutation(m => [
+let omitDefaultsTest = mutation((m) => [
   m.addCardDefault(
     {
       card: {},
     },
-    c => [c.Attack]
+    (c) => [c.Attack],
   ),
 ])
 
@@ -152,7 +152,7 @@ export default [
   verify({
     query: tm,
     string: tmString,
-    schemaPath: 'zeus.graphql',
+    schemaPath: "zeus.graphql",
     variables: {
       skills: [SpecialSkills.RAIN],
     },
@@ -160,12 +160,12 @@ export default [
   verify({
     query: tmWithoutVariable,
     string: tmWithoutVariableString,
-    schemaPath: 'zeus.graphql',
+    schemaPath: "zeus.graphql",
     variables: {},
   }),
   verify({
     query: nestedVariable,
-    schemaPath: 'zeus.graphql',
+    schemaPath: "zeus.graphql",
     variables: {
       cardID: [],
     },
@@ -173,17 +173,17 @@ export default [
   verify({
     query: tq,
     string: tqString,
-    schemaPath: 'zeus.graphql',
+    schemaPath: "zeus.graphql",
     variables: {
-      cid: '1',
-      cid2: '1',
-      cids: ['2'],
-      cids2: ['4'],
+      cid: "1",
+      cid2: "1",
+      cids: ["2"],
+      cids2: ["4"],
     },
   }),
   verify({
     query: omitDefaultsTest,
-    schemaPath: 'zeus.graphql',
+    schemaPath: "zeus.graphql",
     variables: {},
   }),
 ]

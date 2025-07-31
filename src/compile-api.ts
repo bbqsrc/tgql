@@ -1,9 +1,9 @@
-import { expandGlob } from "@std/fs";
-import { buildClientSchema, getIntrospectionQuery, parse, printSchema } from 'graphql';
+import { expandGlob } from "@std/fs"
+import { buildClientSchema, getIntrospectionQuery, parse, printSchema } from "graphql"
 
-import type { Args, Options } from './compile-options.ts';
-import { compileSchemaDefinitions } from './compile.ts';
-import { UserFacingError } from './user-error.ts';
+import type { Args, Options } from "./compile-options.ts"
+import { compileSchemaDefinitions } from "./compile.ts"
+import { UserFacingError } from "./user-error.ts"
 
 /**
  * Compiles the given schema file or URL and writes to the specified output file
@@ -11,18 +11,18 @@ import { UserFacingError } from './user-error.ts';
 export async function compile(args: Args) {
   let schemaData = await fetchOrRead(args)
 
-  let scalars = args.scalar?.map(s => s.split('=') as [string, string])
+  let scalars = args.scalar?.map((s) => s.split("=") as [string, string])
   let outputScript = compileSchemas(schemaData, {
     scalars,
     includeTypename: args.includeTypename,
   })
-  if (args.output === '') {
+  if (args.output === "") {
     console.log(outputScript)
   } else {
-    const outputFileName = args.output.endsWith('.ts') ? args.output : `${args.output}.ts`;
+    const outputFileName = args.output.endsWith(".ts") ? args.output : `${args.output}.ts`
 
     await Deno.writeTextFile(outputFileName, outputScript)
-    
+
     // Format the output file with deno fmt
     try {
       const formatProcess = new Deno.Command("deno", {
@@ -30,9 +30,9 @@ export async function compile(args: Args) {
         stdout: "piped",
         stderr: "piped",
       })
-      
+
       const { success, stderr } = await formatProcess.output()
-      
+
       if (!success) {
         const errorText = new TextDecoder().decode(stderr)
         console.warn(`Warning: Failed to format output file with deno fmt: ${errorText}`)
@@ -52,50 +52,50 @@ async function fetchOrRead(args: Args) {
 
   for (let schemaSpec of schemas) {
     if (UrlRegex.test(schemaSpec)) {
-      const headers = new Headers();
+      const headers = new Headers()
 
-      headers.set('accept', 'application/json');
+      headers.set("accept", "application/json")
 
       for (const header of args.headers || []) {
-        const [key, value] = header.split(':').map(s => s.trim());
+        const [key, value] = header.split(":").map((s) => s.trim())
         if (key && value) {
-          headers.append(key, value);
+          headers.append(key, value)
         }
       }
 
       // Add Authorization header if bearer token is provided
       if (args.bearer) {
-        headers.set('authorization', `Bearer ${args.bearer}`)
+        headers.set("authorization", `Bearer ${args.bearer}`)
       }
 
       let res = await fetch(schemaSpec, {
-        method: 'POST',
+        method: "POST",
         headers,
         body: JSON.stringify({
-          operationName: 'IntrospectionQuery',
+          operationName: "IntrospectionQuery",
           query: getIntrospectionQuery(),
         }),
       })
       let body: any = await res.json()
       if (body.errors) {
         throw new UserFacingError(
-          `Error introspecting schema from ${args.schema}: ${JSON.stringify(body.errors, null, 2)}`
+          `Error introspecting schema from ${args.schema}: ${JSON.stringify(body.errors, null, 2)}`,
         )
       }
       loadedSchemas.push(printSchema(buildClientSchema(body.data)))
-    } else if (args.schema === '') {
-      let res = ''
-      const reader = Deno.stdin.readable.getReader();
-      const decoder = new TextDecoder();
-      
+    } else if (args.schema === "") {
+      let res = ""
+      const reader = Deno.stdin.readable.getReader()
+      const decoder = new TextDecoder()
+
       try {
         while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          res += decoder.decode(value);
+          const { done, value } = await reader.read()
+          if (done) break
+          res += decoder.decode(value)
         }
       } finally {
-        reader.releaseLock();
+        reader.releaseLock()
       }
       loadedSchemas.push(res)
     } else {
@@ -115,9 +115,9 @@ async function fetchOrRead(args: Args) {
 export function compileSchemas(schemaStrings: string | string[], options: Options = {}): string {
   let schemaArray = Array.isArray(schemaStrings) ? schemaStrings : [schemaStrings]
 
-  let schemas = schemaArray.map(schemaString => parse(schemaString, { noLocation: false }))
+  let schemas = schemaArray.map((schemaString) => parse(schemaString, { noLocation: false }))
 
-  let schemaDefinitions = schemas.flatMap(s => s.definitions)
+  let schemaDefinitions = schemas.flatMap((s) => s.definitions)
 
   return compileSchemaDefinitions(schemaDefinitions, options)
 }

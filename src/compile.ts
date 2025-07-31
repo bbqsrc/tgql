@@ -16,12 +16,12 @@ import {
   type TypeExtensionNode,
   type TypeNode,
   type UnionTypeDefinitionNode,
-} from 'graphql'
-import type { Options } from './compile-options.ts'
-import { postamble } from './postamble.ts'
-import { ExactArgNames, Preamble } from './preamble.lib.ts'
-import { getScalars } from './scalars.ts'
-import { UserFacingError } from './user-error.ts'
+} from "graphql"
+import type { Options } from "./compile-options.ts"
+import { postamble } from "./postamble.ts"
+import { ExactArgNames, Preamble } from "./preamble.lib.ts"
+import { getScalars } from "./scalars.ts"
+import { UserFacingError } from "./user-error.ts"
 
 type SupportedExtensibleNodes =
   | InterfaceTypeDefinitionNode
@@ -30,10 +30,8 @@ type SupportedExtensibleNodes =
 
 type FieldOf<T extends SupportedExtensibleNodes> = T extends
   | ObjectTypeDefinitionNode
-  | InterfaceTypeDefinitionNode
-  ? FieldDefinitionNode
-  : T extends InputObjectTypeDefinitionNode
-  ? InputValueDefinitionNode
+  | InterfaceTypeDefinitionNode ? FieldDefinitionNode
+  : T extends InputObjectTypeDefinitionNode ? InputValueDefinitionNode
   : never
 
 /**
@@ -41,23 +39,23 @@ type FieldOf<T extends SupportedExtensibleNodes> = T extends
  */
 export function compileSchemaDefinitions(
   schemaDefinitions: DefinitionNode[],
-  options: Options = {}
+  options: Options = {},
 ) {
-  let outputScript = ''
+  let outputScript = ""
   let usesExactArgNames = false
 
   function write(s: string) {
-    outputScript += s + '\n'
+    outputScript += s + "\n"
   }
 
   const outputObjectTypeNames = new Set()
 
-  const enumTypes = schemaDefinitions.flatMap(def => {
+  const enumTypes = schemaDefinitions.flatMap((def) => {
     if (def.kind === Kind.ENUM_TYPE_DEFINITION) return [def.name.value]
     return []
   })
 
-  const scalarTypeNames = schemaDefinitions.flatMap(def => {
+  const scalarTypeNames = schemaDefinitions.flatMap((def) => {
     if (def.kind === Kind.SCALAR_TYPE_DEFINITION) return [def.name.value]
     return []
   })
@@ -75,14 +73,12 @@ export function compileSchemaDefinitions(
 
   function getExtendedFields<T extends SupportedExtensibleNodes>(sd: T) {
     let fieldExtensions = (schemaExtensionsMap.get(sd.name.value) || []).flatMap(
-      n => (n as any).fields || []
+      (n) => (n as any).fields || [],
     ) as FieldOf<T>[]
 
     let fieldList = ((sd.fields || []) as FieldOf<T>[]).concat(fieldExtensions)
 
-    fieldList.sort((f1, f2) =>
-      f1.name.value < f2.name.value ? -1 : f1.name.value > f2.name.value ? 1 : 0
-    )
+    fieldList.sort((f1, f2) => f1.name.value < f2.name.value ? -1 : f1.name.value > f2.name.value ? 1 : 0)
 
     if (
       options.includeTypename &&
@@ -91,9 +87,9 @@ export function compileSchemaDefinitions(
     ) {
       fieldList.push({
         kind: Kind.FIELD_DEFINITION,
-        name: { kind: Kind.NAME, value: '__typename' },
-        type: { kind: Kind.NAMED_TYPE, name: { value: 'String', kind: Kind.NAME } },
-        description: { kind: Kind.STRING, value: '' },
+        name: { kind: Kind.NAME, value: "__typename" },
+        type: { kind: Kind.NAMED_TYPE, name: { value: "String", kind: Kind.NAME } },
+        description: { kind: Kind.STRING, value: "" },
         directives: [],
       } as any)
     }
@@ -104,25 +100,25 @@ export function compileSchemaDefinitions(
 
   const atomicTypes = new Map(
     enumTypes
-      .map(et => [et, et])
+      .map((et) => [et, et])
       .concat([
-        ['Int', 'number'],
-        ['Float', 'number'],
-        ['ID', 'string'],
-        ['String', 'string'],
-        ['Boolean', 'boolean'],
-      ]) as [string, string][]
+        ["Int", "number"],
+        ["Float", "number"],
+        ["ID", "string"],
+        ["String", "string"],
+        ["Boolean", "boolean"],
+      ]) as [string, string][],
   )
 
   const scalarMap = new Map(scalars.map)
 
   const inheritanceMap = new Map(
-    schemaDefinitions.flatMap(def => {
+    schemaDefinitions.flatMap((def) => {
       if (def.kind === Kind.OBJECT_TYPE_DEFINITION) {
-        return [[def.name.value, def.interfaces?.map(ifc => ifc.name.value)]]
+        return [[def.name.value, def.interfaces?.map((ifc) => ifc.name.value)]]
       }
       return []
-    })
+    }),
   )
 
   // reverse map to answer "who implements this"
@@ -146,7 +142,7 @@ export function compileSchemaDefinitions(
 
     let scalar = scalarMap.get(graphqlType)
     if (scalar) {
-      if (scalar === 'string' || scalar === 'number') return graphqlType
+      if (scalar === "string" || scalar === "number") return graphqlType
       else return `CustomScalar<${graphqlType}>`
     }
 
@@ -154,9 +150,11 @@ export function compileSchemaDefinitions(
   }
 
   function printAtomicTypes() {
-    return `type $Atomic = ${Array.from(new Set(atomicTypes.values()))
-      .concat('null', 'undefined')
-      .join(' | ')}
+    return `type $Atomic = ${
+      Array.from(new Set(atomicTypes.values()))
+        .concat("null", "undefined")
+        .join(" | ")
+    }
 `
   }
 
@@ -168,17 +166,15 @@ export function compileSchemaDefinitions(
   function printTypeWrapped(
     wrappedType: string,
     wrapperDef: TypeNode,
-    notNull: boolean = false
+    notNull: boolean = false,
   ): string {
     switch (wrapperDef.kind) {
       case Kind.NON_NULL_TYPE:
         return `${printTypeWrapped(wrappedType, wrapperDef.type, true)}`
       case Kind.LIST_TYPE:
-        return `Array<${printTypeWrapped(wrappedType, wrapperDef.type)}>${
-          !notNull ? ' | null' : ''
-        }`
+        return `Array<${printTypeWrapped(wrappedType, wrapperDef.type)}>${!notNull ? " | null" : ""}`
       case Kind.NAMED_TYPE:
-        return `${toTSTypeName(wrappedType)}${!notNull ? ' | null' : ''}`
+        return `${toTSTypeName(wrappedType)}${!notNull ? " | null" : ""}`
     }
   }
 
@@ -187,9 +183,9 @@ export function compileSchemaDefinitions(
       case Kind.NON_NULL_TYPE:
         return `${printType(def.type, true)}`
       case Kind.LIST_TYPE:
-        return `Readonly<Array<${printType(def.type)}>>${!notNull ? ' | null' : ''}`
+        return `Readonly<Array<${printType(def.type)}>>${!notNull ? " | null" : ""}`
       case Kind.NAMED_TYPE:
-        return `${toTSTypeName(def.name.value)}${!notNull ? ' | null' : ''}`
+        return `${toTSTypeName(def.name.value)}${!notNull ? " | null" : ""}`
     }
   }
 
@@ -198,9 +194,9 @@ export function compileSchemaDefinitions(
       case Kind.NON_NULL_TYPE:
         return `${printTypeGql(def.type, true)}`
       case Kind.LIST_TYPE:
-        return `[${printTypeGql(def.type)}]${notNull ? '!' : ''}`
+        return `[${printTypeGql(def.type)}]${notNull ? "!" : ""}`
       case Kind.NAMED_TYPE:
-        return `${def.name.value}${notNull ? '!' : ''}`
+        return `${def.name.value}${notNull ? "!" : ""}`
     }
   }
 
@@ -217,7 +213,7 @@ export function compileSchemaDefinitions(
 
   function printInputField(def: InputValueDefinitionNode) {
     const canBeOmitted = def.type.kind !== Kind.NON_NULL_TYPE || def.defaultValue !== undefined
-    return `${def.name.value}${canBeOmitted ? '?' : ''}: ${printType(def.type)}`
+    return `${def.name.value}${canBeOmitted ? "?" : ""}: ${printType(def.type)}`
   }
 
   function printDocumentation(description?: StringValueNode) {
@@ -226,7 +222,7 @@ export function compileSchemaDefinitions(
 /**
  * ${description?.value}
  */`
-      : ''
+      : ""
   }
 
   function printObjectType(def: ObjectTypeDefinitionNode) {
@@ -238,27 +234,29 @@ export class ${className} extends $Base<"${className}"> {
     super("${className}")
   }
 
-  ${getExtendedFields(def)
-    .map(f => printField(f, `"${className}"`))
-    .join('\n')}
+  ${
+      getExtendedFields(def)
+        .map((f) => printField(f, `"${className}"`))
+        .join("\n")
+    }
 }`
   }
 
   function generateFunctionFieldDefinition(
     field: FieldDefinitionNode,
-    includeArgs: boolean
+    includeArgs: boolean,
   ): string {
     const methodArgs: string[] = []
     const fieldTypeName = printTypeBase(field.type)
     let hasArgs = false,
       hasSelector = false
 
-    let argsType = ''
+    let argsType = ""
 
     if (field.arguments?.length && includeArgs) {
       hasArgs = true
       argsType = `{
-        ${(field.arguments ?? []).map(arg => printInputField(arg)).join('\n')},
+        ${(field.arguments ?? []).map((arg) => printInputField(arg)).join("\n")},
       }`
       methodArgs.push(`args: ExactArgNames<Args, ${argsType}>`)
       usesExactArgNames = true
@@ -268,19 +266,17 @@ export class ${className} extends $Base<"${className}"> {
       methodArgs.push(`selectorFn: (s: ${fieldTypeName}) => [...Sel]`)
     }
     if (methodArgs.length > 0) {
-      let methodArgsSerialized = methodArgs.join(', ')
+      let methodArgsSerialized = methodArgs.join(", ")
 
       const generics = (hasArgs ? [`Args extends VariabledInput<${argsType}>`] : []).concat(
-        hasSelector ? [`Sel extends Selection<${fieldTypeName}>`] : []
+        hasSelector ? [`Sel extends Selection<${fieldTypeName}>`] : [],
       )
 
-      return `${field.name.value}<${generics.join(',')}>(${methodArgsSerialized}):$Field<"${
-        field.name.value
-      }", ${hasSelector ? printTypeWrapped('GetOutput<Sel>', field.type) : printType(field.type)} ${
-        hasArgs ? `, GetVariables<${hasSelector ? 'Sel' : '[]'}, Args>` : ', GetVariables<Sel>'
-      }>`
+      return `${field.name.value}<${generics.join(",")}>(${methodArgsSerialized}):$Field<"${field.name.value}", ${
+        hasSelector ? printTypeWrapped("GetOutput<Sel>", field.type) : printType(field.type)
+      } ${hasArgs ? `, GetVariables<${hasSelector ? "Sel" : "[]"}, Args>` : ", GetVariables<Sel>"}>`
     } else {
-      throw new Error('Attempting to generate function field definition for non-function field')
+      throw new Error("Attempting to generate function field definition for non-function field")
     }
   }
 
@@ -291,20 +287,20 @@ export class ${className} extends $Base<"${className}"> {
       hasSelector = gqlTypeHasSelector(fieldTypeName)
 
     if (hasArgs || hasSelector) {
-      let extractArgs = ''
+      let extractArgs = ""
 
       let validDefinitions = generateFunctionFieldDefinition(field, true)
 
       const hasOnlyMaybeInputs = (field.arguments ?? []).every(
-        def => def.type.kind !== Kind.NON_NULL_TYPE
+        (def) => def.type.kind !== Kind.NON_NULL_TYPE,
       )
       if (hasOnlyMaybeInputs && hasArgs && hasSelector) {
-        validDefinitions +=
-          '\n' +
+        validDefinitions += "\n" +
           generateFunctionFieldDefinition(field, false) +
-          '\n' +
+          "\n" +
           `${field.name.value}(arg1: any, arg2?: any)`
-        extractArgs = `const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };\n`
+        extractArgs =
+          `const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };\n`
       }
       return `
       ${printDocumentation(field.description)}
@@ -312,23 +308,25 @@ export class ${className} extends $Base<"${className}"> {
       ${extractArgs}
       const options = {
         ${
-          hasArgs
-            ? `argTypes: {
-              ${field.arguments
-                ?.map(arg => `${arg.name.value}: "${printTypeGql(arg.type)}"`)
-                .join(',\n')}
+        hasArgs
+          ? `argTypes: {
+              ${
+            field.arguments
+              ?.map((arg) => `${arg.name.value}: "${printTypeGql(arg.type)}"`)
+              .join(",\n")
+          }
             },`
-            : ''
-        }
-        ${hasArgs ? `args,` : ''}
+          : ""
+      }
+        ${hasArgs ? `args,` : ""}
 
-        ${hasSelector ? `selection: selectorFn(new ${fieldTypeName})` : ''}
+        ${hasSelector ? `selection: selectorFn(new ${fieldTypeName})` : ""}
       };
       return this.$_select("${field.name.value}", options as any) as any
     }
   `
     } else {
-      let fieldType = field.name.value === '__typename' ? typename : printType(field.type)
+      let fieldType = field.name.value === "__typename" ? typename : printType(field.type)
       return `
       ${printDocumentation(field.description)}
       get ${field.name.value}(): $Field<"${field.name.value}", ${fieldType}>  {
@@ -341,18 +339,20 @@ export class ${className} extends $Base<"${className}"> {
     const className = def.name.value
 
     const additionalTypes = reverseInheritanceMap.get(className) ?? []
-    const typenameList = additionalTypes.map(t => `"${t}"`).join(' | ')
+    const typenameList = additionalTypes.map((t) => `"${t}"`).join(" | ")
 
-    const InterfaceObject = `{${additionalTypes.map(t => `${t}: ${t}`)}}`
+    const InterfaceObject = `{${additionalTypes.map((t) => `${t}: ${t}`)}}`
     return `
 ${printDocumentation(def.description)}
 export class ${def.name.value} extends $Interface<${InterfaceObject}, "${def.name.value}"> {
   constructor() {
     super(${InterfaceObject}, "${def.name.value}")
   }
-  ${getExtendedFields(def)
-    .map(f => printField(f, typenameList))
-    .join('\n')}
+  ${
+      getExtendedFields(def)
+        .map((f) => printField(f, typenameList))
+        .join("\n")
+    }
 }`
   }
 
@@ -360,9 +360,11 @@ export class ${def.name.value} extends $Interface<${InterfaceObject}, "${def.nam
     return `
 ${printDocumentation(def.description)}
 export type ${def.name.value} = {
-  ${getExtendedFields(def)
-    .map(field => printInputField(field))
-    .join(',\n')}
+  ${
+      getExtendedFields(def)
+        .map((field) => printInputField(field))
+        .join(",\n")
+    }
 }
     `
   }
@@ -370,37 +372,42 @@ export type ${def.name.value} = {
   function printInputTypeMap(defs: InputObjectTypeDefinitionNode[]) {
     return `
 const $InputTypes: {[key: string]: {[key: string]: string}} = {
-  ${defs
-    .map(
-      def => `  ${def.name.value}: {
-    ${getExtendedFields(def)
-      .map(field => `${field.name.value}: "${printTypeGql(field.type)}"`)
-      .join(',\n')}
-  }`
-    )
-    .join(',\n')}
+  ${
+      defs
+        .map(
+          (def) =>
+            `  ${def.name.value}: {
+    ${
+              getExtendedFields(def)
+                .map((field) => `${field.name.value}: "${printTypeGql(field.type)}"`)
+                .join(",\n")
+            }
+  }`,
+        )
+        .join(",\n")
+    }
 }
 `
   }
 
   function printScalar(def: ScalarTypeDefinitionNode) {
     let typeName = def.name.value
-    if (scalarMap.get(typeName) === typeName) return ''
+    if (scalarMap.get(typeName) === typeName) return ""
 
     return `
 ${printDocumentation(def.description)}
-export type ${def.name.value} = ${scalarMap.get(typeName) ?? 'unknown'}
+export type ${def.name.value} = ${scalarMap.get(typeName) ?? "unknown"}
 `
   }
 
   function printUnion(def: UnionTypeDefinitionNode) {
     // TODO: collect all interfaces that the named type implements too
-    const baseTypes = def.types?.map(t => printTypeBase(t)) ?? []
+    const baseTypes = def.types?.map((t) => printTypeBase(t)) ?? []
     const additionalTypes = Array.from(
-      new Set(baseTypes.concat(baseTypes.flatMap(bt => inheritanceMap.get(bt) ?? [])))
+      new Set(baseTypes.concat(baseTypes.flatMap((bt) => inheritanceMap.get(bt) ?? []))),
     )
 
-    const UnionObject = `{${additionalTypes.map(t => `${t}: ${t}`)}}`
+    const UnionObject = `{${additionalTypes.map((t) => `${t}: ${t}`)}}`
     return `
 ${printDocumentation(def.description)}
 export class ${def.name.value} extends $Union<${UnionObject}, "${def.name.value}"> {
@@ -418,7 +425,7 @@ export class ${def.name.value} extends $Union<${UnionObject}, "${def.name.value}
     return `
   ${printDocumentation(def.description)}
 export enum ${def.name.value} {
-  ${def.values?.map(printEnumValue).join(',\n')}
+  ${def.values?.map(printEnumValue).join(",\n")}
 }
   `
   }
@@ -426,20 +433,22 @@ export enum ${def.name.value} {
   function printSchema(def: SchemaDefinitionNode) {
     return `
   const $Root = {
-    ${def.operationTypes.map(op => `${op.operation}: ${printType(op.type, true)}`).join(',\n')}
+    ${def.operationTypes.map((op) => `${op.operation}: ${printType(op.type, true)}`).join(",\n")}
   }
 
   namespace $RootTypes {
-    ${def.operationTypes
-      .map(op => `export type ${op.operation} = ${printType(op.type, true)}`)
-      .join('\n')}
+    ${
+      def.operationTypes
+        .map((op) => `export type ${op.operation} = ${printType(op.type, true)}`)
+        .join("\n")
+    }
   }
   `
   }
 
   // main
 
-  write(scalars.imports.join('\n'))
+  write(scalars.imports.join("\n"))
   write(Preamble)
   write(printAtomicTypes())
   write(printEnumList())
@@ -473,9 +482,9 @@ export enum ${def.name.value} {
   }
 
   if (!rootNode) {
-    if (!outputObjectTypeNames.has('Query')) {
+    if (!outputObjectTypeNames.has("Query")) {
       throw new UserFacingError(
-        'Could not find toplevel root node or an output objet type named `Query`'
+        "Could not find toplevel root node or an output objet type named `Query`",
       )
     }
     rootNode = {
@@ -488,34 +497,34 @@ export enum ${def.name.value} {
             kind: Kind.NAMED_TYPE,
             name: {
               kind: Kind.NAME,
-              value: 'Query',
+              value: "Query",
             },
           },
         },
-        ...(outputObjectTypeNames.has('Mutation')
+        ...(outputObjectTypeNames.has("Mutation")
           ? [
-              {
-                kind: Kind.OPERATION_TYPE_DEFINITION as const,
-                operation: OperationTypeNode.MUTATION,
-                type: {
-                  kind: Kind.NAMED_TYPE as const,
-                  name: {
-                    kind: Kind.NAME as const,
-                    value: 'Mutation',
-                  },
+            {
+              kind: Kind.OPERATION_TYPE_DEFINITION as const,
+              operation: OperationTypeNode.MUTATION,
+              type: {
+                kind: Kind.NAMED_TYPE as const,
+                name: {
+                  kind: Kind.NAME as const,
+                  value: "Mutation",
                 },
               },
-            ]
+            },
+          ]
           : []),
       ],
     }
   }
   write(printSchema(rootNode))
-  write(postamble(rootNode.operationTypes.map(o => o.operation.toString())))
+  write(postamble(rootNode.operationTypes.map((o) => o.operation.toString())))
   write(
     printInputTypeMap(
-      schemaDefinitions.filter(def => def.kind === Kind.INPUT_OBJECT_TYPE_DEFINITION) as any[]
-    )
+      schemaDefinitions.filter((def) => def.kind === Kind.INPUT_OBJECT_TYPE_DEFINITION) as any[],
+    ),
   )
 
   if (usesExactArgNames) {

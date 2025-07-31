@@ -1,29 +1,29 @@
-import { verify } from './verify.ts'
-import { $, query } from './issue-69.graphql.api.ts'
+import { verify } from "./verify.ts"
+import { $, query } from "./issue-69.graphql.api.ts"
 
-const EmptyVariablesQuery = query(q => [
+const EmptyVariablesQuery = query((q) => [
   q.topLevelVariablesNotNullable({
-    arg1: $('arg1'),
-    arg2: $('arg2'),
+    arg1: $("arg1"),
+    arg2: $("arg2"),
   }),
 ])
 
-const GetAccessibleUsers = query(q => [
+const GetAccessibleUsers = query((q) => [
   q.optionalObjectVariablesRequired({
-    arg2: $('arg2'),
-    arg1: $('arg1'),
+    arg2: $("arg2"),
+    arg1: $("arg1"),
   }),
 ])
 
 export default [
   verify({
     query: EmptyVariablesQuery,
-    schemaPath: 'issue-69.graphql',
+    schemaPath: "issue-69.graphql",
     variables: {},
   }),
   verify({
     query: GetAccessibleUsers,
-    schemaPath: 'issue-69.graphql',
+    schemaPath: "issue-69.graphql",
     variables: {},
   }),
 ]

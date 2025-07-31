@@ -1,5 +1,5 @@
 // Default to string for all other scalars
-const DEFAULT_SCALAR_MAPPING = [['.+', 'string']] as [string, string][]
+const DEFAULT_SCALAR_MAPPING = [[".+", "string"]] as [string, string][]
 
 type ScalarMapping = {
   nameRegex: string
@@ -14,7 +14,7 @@ type ResolvedScalar = {
 
 function pairsToScalarMap(scalarArgs?: [string, string][]): ScalarMapping[] {
   return (scalarArgs || DEFAULT_SCALAR_MAPPING).map(([nameRegex, typePathPattern]) => ({
-    nameRegex: '^' + nameRegex + '$',
+    nameRegex: "^" + nameRegex + "$",
     typePathPattern: typePathPattern ?? nameRegex,
   }))
 }
@@ -27,20 +27,18 @@ function resolveFromPattern(scalarMap: ScalarMapping[], scalar: string): Resolve
     }
   }
 
-  return { resolvedType: 'unknown', name: scalar, importStatement: undefined }
+  return { resolvedType: "unknown", name: scalar, importStatement: undefined }
 }
 
 function resolveFromTypePath(name: string, typePath: string) {
-  let [importFile, importName] = typePath.split('#')
+  let [importFile, importName] = typePath.split("#")
   if (!importName) {
     importName = importFile
-    importFile = ''
+    importFile = ""
   }
 
   let importStatement = importFile
-    ? `import type { ${
-        importName !== name ? `${importName} as ${name}` : importName
-      } } from '${importFile}'`
+    ? `import type { ${importName !== name ? `${importName} as ${name}` : importName} } from '${importFile}'`
     : undefined
 
   return { name, resolvedType: importStatement ? name : importName!, importStatement }
@@ -48,10 +46,10 @@ function resolveFromTypePath(name: string, typePath: string) {
 
 export function getScalars(scalars: string[], scalarMapPairs?: [string, string][]) {
   let scalarMap = pairsToScalarMap(scalarMapPairs)
-  let scalarInfo = scalars.map(s => resolveFromPattern(scalarMap, s))
+  let scalarInfo = scalars.map((s) => resolveFromPattern(scalarMap, s))
 
-  let map = scalarInfo.map(si => [si.name, si.resolvedType] as [string, string])
-  let imports = scalarInfo.flatMap(si => (si.importStatement ? [si.importStatement] : []))
+  let map = scalarInfo.map((si) => [si.name, si.resolvedType] as [string, string])
+  let imports = scalarInfo.flatMap((si) => (si.importStatement ? [si.importStatement] : []))
 
   return { map, imports }
 }

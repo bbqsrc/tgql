@@ -1,9 +1,9 @@
-import type { TypedDocumentNode } from 'npm:@graphql-typed-document-node/core'
-import { $, Card, fragment, mutation, query, SpecialSkills } from './zeus.ts'
+import type { TypedDocumentNode } from "npm:@graphql-typed-document-node/core"
+import { $, Card, fragment, mutation, query, SpecialSkills } from "./zeus.ts"
 
-const cardFragment = fragment(Card, c => [
+const cardFragment = fragment(Card, (c) => [
   c.Attack, //
-  c.Defense.as('def'),
+  c.Defense.as("def"),
 ])
 
 function verify<Inp, Out>(opts: {
@@ -57,40 +57,40 @@ query($cid:String, $cids:String!, $cid2:String, $cids2:String!) {
 }
 */
 
-const tq = query(q => [
-  q.cardById({ cardId: $('cid') }, c => [
+const tq = query((q) => [
+  q.cardById({ cardId: $("cid") }, (c) => [
     ...cardFragment,
-    c.attack({ cardID: $('cids') }, aCards => [
+    c.attack({ cardID: $("cids") }, (aCards) => [
       aCards.Attack, //
       aCards.Defense,
     ]),
   ]),
 
   q
-    .cardById({ cardId: $('cid2') }, c => [
+    .cardById({ cardId: $("cid2") }, (c) => [
       ...cardFragment,
-      c.attack({ cardID: $('cids2') }, aCards => [
+      c.attack({ cardID: $("cids2") }, (aCards) => [
         aCards.Attack, //
         aCards.Defense,
       ]),
     ])
-    .as('second'),
+    .as("second"),
 
-  q.drawCard(c => [
+  q.drawCard((c) => [
     c.Attack, //
-    c.cardImage(ci => [
+    c.cardImage((ci) => [
       ci.bucket, //
       ci.region,
       ci.key,
     ]),
   ]),
 
-  q.drawChangeCard(cc => [
-    cc.$on('EffectCard', sc => [
+  q.drawChangeCard((cc) => [
+    cc.$on("EffectCard", (sc) => [
       sc.name, //
       sc.effectSize,
     ]),
-    cc.$on('SpecialCard', sc => [
+    cc.$on("SpecialCard", (sc) => [
       sc.name, //
       sc.effect,
     ]),
@@ -119,24 +119,24 @@ mutation ($hiz:Int, $bye:Int) {
   }
 }
  */
-const tm = mutation(m => [
+const tm = mutation((m) => [
   m.addCard(
     {
       card: {
         Attack: 1,
         Defense: 2,
-        name: 'Hi',
-        description: 'Lo',
+        name: "Hi",
+        description: "Lo",
         skills: [SpecialSkills.FIRE],
         conditions: {
           _and: [
-            { field1: { eq: $('hiz') } }, //
-            { field2: { eq: $('bye') } },
+            { field1: { eq: $("hiz") } }, //
+            { field2: { eq: $("bye") } },
           ] as const,
         },
       },
     },
-    c => [c.Attack, c.Defense, c.Children]
+    (c) => [c.Attack, c.Defense, c.Children],
   ),
 ])
 
@@ -150,11 +150,11 @@ console.log(tq.loc?.source.body, tm.loc?.source.body)
 
 verify({
   query: tq,
-  string: 'whatever',
+  string: "whatever",
   variables: {
-    cid: '1',
-    cid2: '1',
-    cids: ['2'],
-    cids2: ['4'],
+    cid: "1",
+    cid2: "1",
+    cids: ["2"],
+    cids2: ["4"],
   },
 })

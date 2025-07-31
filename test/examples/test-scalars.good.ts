@@ -1,36 +1,36 @@
-import { $, mutation } from './scalars.graphql.api.ts'
-import { verify } from './verify.ts'
+import { $, mutation } from "./scalars.graphql.api.ts"
+import { verify } from "./verify.ts"
 
-let createScalarMutation = mutation(m => [
+let createScalarMutation = mutation((m) => [
   m.createObject(
     {
       input: {
-        content: $('myVar'),
+        content: $("myVar"),
       },
     },
-    s => [s.content]
+    (s) => [s.content],
   ),
 ])
 
-let createEncompassingVariableMutation = mutation(m => [
+let createEncompassingVariableMutation = mutation((m) => [
   m.createObject(
     {
-      input: $('myInput'),
+      input: $("myInput"),
     },
-    s => [s.content]
+    (s) => [s.content],
   ),
 ])
 
-let createManyMutation = mutation(m => [m.createMany({ inputs: $('myInputs') })])
+let createManyMutation = mutation((m) => [m.createMany({ inputs: $("myInputs") })])
 
 export default [
   verify({
     query: createScalarMutation,
     variables: {
-      myVar: { a: 'str' },
+      myVar: { a: "str" },
     },
-    schemaPath: 'scalars.graphql',
-    useOutputType: oType => {
+    schemaPath: "scalars.graphql",
+    useOutputType: (oType) => {
       // val should be a string as JSONObject is {[key: string]: string}
       const typedOutput = oType as Record<string, unknown>
       const createObject = typedOutput.createObject as Record<string, unknown> | undefined
@@ -43,20 +43,20 @@ export default [
     query: createEncompassingVariableMutation,
     variables: {
       myInput: {
-        content: { key: 'str' },
+        content: { key: "str" },
       },
     },
-    schemaPath: 'scalars.graphql',
+    schemaPath: "scalars.graphql",
   }),
   verify({
     query: createManyMutation,
     variables: {
       myInputs: [
         {
-          content: { key: 's' },
+          content: { key: "s" },
         },
       ],
     },
-    schemaPath: 'scalars.graphql',
+    schemaPath: "scalars.graphql",
   }),
 ]

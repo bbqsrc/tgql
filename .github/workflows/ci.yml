@@ -2,106 +2,106 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Deno
-      uses: denoland/setup-deno@v2
-      with:
-        deno-version: v2.x
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
 
-    - name: Verify Deno installation
-      run: deno --version
+      - name: Verify Deno installation
+        run: deno --version
 
-    - name: Cache Deno dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/deno
-          ~/.deno
-        key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-deno-
+      - name: Cache Deno dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/deno
+            ~/.deno
+          key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-deno-
 
-    - name: Run tests
-      run: deno task test
+      - name: Run tests
+        run: deno task test
 
-    - name: Build
-      run: deno task build
+      - name: Build
+        run: deno task build
 
   build-matrix:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: 
+        target:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
           - x86_64-pc-windows-msvc
           - x86_64-apple-darwin
           - aarch64-apple-darwin
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Get version
-      id: version
-      shell: bash
-      run: |
-        VERSION="${GITHUB_REF#refs/tags/}"
-        if [[ "$GITHUB_REF" != refs/tags/* ]]; then
-          VERSION=dev
-        fi
-        EXT=""
-        if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-          EXT=".exe"
-        fi
-        ARTIFACT_NAME="tgql-${{ matrix.target }}-$VERSION$EXT"
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
-    
-    - name: Setup Deno
-      uses: denoland/setup-deno@v2
-      with:
-        deno-version: v2.x
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
+            VERSION=dev
+          fi
+          EXT=""
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            EXT=".exe"
+          fi
+          ARTIFACT_NAME="tgql-${{ matrix.target }}-$VERSION$EXT"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
 
-    - name: Cache Deno dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/deno
-          ~/.deno
-        key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-deno-
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
 
-    - name: Build for ${{ matrix.target }}
-      run: deno compile --allow-env --unstable-raw-imports --target ${{ matrix.target }} --output dist/${{ steps.version.outputs.ARTIFACT_NAME }} src/cli.ts
+      - name: Cache Deno dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/deno
+            ~/.deno
+          key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-deno-
 
-    - name: Create distribution directory and package
-      run: |
-        mkdir -p ${{ steps.version.outputs.ARTIFACT_NAME }}
-        cp dist/${{ steps.version.outputs.ARTIFACT_NAME }} ${{ steps.version.outputs.ARTIFACT_NAME }}/tgql
-        if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-          mv ${{ steps.version.outputs.ARTIFACT_NAME }}/tgql ${{ steps.version.outputs.ARTIFACT_NAME }}/tgql.exe
-          zip -r ${{ steps.version.outputs.ARTIFACT_NAME }}.zip ${{ steps.version.outputs.ARTIFACT_NAME }}
-        else
-          tar -czf ${{ steps.version.outputs.ARTIFACT_NAME }}.tgz ${{ steps.version.outputs.ARTIFACT_NAME }}
-        fi
-        rm -rf ${{ steps.version.outputs.ARTIFACT_NAME }}
+      - name: Build for ${{ matrix.target }}
+        run: deno compile --allow-env --unstable-raw-imports --target ${{ matrix.target }} --output dist/${{ steps.version.outputs.ARTIFACT_NAME }} src/cli.ts
 
-    - name: Upload platform-specific artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        compression-level: 0
-        name: ${{ steps.version.outputs.ARTIFACT_NAME }}
-        path: ${{ steps.version.outputs.ARTIFACT_NAME }}.*
+      - name: Create distribution directory and package
+        run: |
+          mkdir -p ${{ steps.version.outputs.ARTIFACT_NAME }}
+          cp dist/${{ steps.version.outputs.ARTIFACT_NAME }} ${{ steps.version.outputs.ARTIFACT_NAME }}/tgql
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            mv ${{ steps.version.outputs.ARTIFACT_NAME }}/tgql ${{ steps.version.outputs.ARTIFACT_NAME }}/tgql.exe
+            zip -r ${{ steps.version.outputs.ARTIFACT_NAME }}.zip ${{ steps.version.outputs.ARTIFACT_NAME }}
+          else
+            tar -czf ${{ steps.version.outputs.ARTIFACT_NAME }}.tgz ${{ steps.version.outputs.ARTIFACT_NAME }}
+          fi
+          rm -rf ${{ steps.version.outputs.ARTIFACT_NAME }}
+
+      - name: Upload platform-specific artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          compression-level: 0
+          name: ${{ steps.version.outputs.ARTIFACT_NAME }}
+          path: ${{ steps.version.outputs.ARTIFACT_NAME }}.*
