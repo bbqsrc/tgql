@@ -1,102 +1,115 @@
+import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
+import { gql } from "graphql-tag";
 
+const VariableName = " $1fcbcbff-3e78-462f-b45c-668a3e09bfd8";
 
-import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
-import { gql } from 'graphql-tag'
+const ScalarBrandingField = " $1fcbcbff-3e78-462f-b45c-668a3e09bfd9";
 
-const VariableName = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd8'
+type CustomScalar<T> = { [ScalarBrandingField]: T };
 
-const ScalarBrandingField = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd9'
-
-type CustomScalar<T> = { [ScalarBrandingField]: T }
-
-class Variable<T, Name extends string, IsRequired extends boolean | undefined = undefined> {
-  private [VariableName]: Name
-  public readonly isRequired?: IsRequired
-  declare private _typeMarker: T
+class Variable<
+  T,
+  Name extends string,
+  IsRequired extends boolean | undefined = undefined,
+> {
+  private [VariableName]: Name;
+  public readonly isRequired?: IsRequired;
+  declare private _typeMarker: T;
 
   constructor(name: Name, isRequired?: IsRequired) {
-    this[VariableName] = name
-    this.isRequired = isRequired as IsRequired
+    this[VariableName] = name;
+    this.isRequired = isRequired as IsRequired;
   }
 }
 
-type ArrayInput<I> = [I] extends [$Atomic] ? never : ReadonlyArray<VariabledInput<I>>
+type ArrayInput<I> = [I] extends [$Atomic] ? never
+  : ReadonlyArray<VariabledInput<I>>;
 
-type AllowedInlineScalars<S> = S extends string | number ? S : never
+type AllowedInlineScalars<S> = S extends string | number ? S : never;
 
-export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S>
-  ? S
-  : T extends ReadonlyArray<infer I>
-  ? ReadonlyArray<UnwrapCustomScalars<I>>
+export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S> ? S
+  : T extends ReadonlyArray<infer I> ? ReadonlyArray<UnwrapCustomScalars<I>>
   : T extends Record<string, any>
-  ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
-  : T
+    ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
+  : T;
 
-type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str, any>
+type VariableWithoutScalars<T, Str extends string> = Variable<
+  UnwrapCustomScalars<T>,
+  Str,
+  any
+>;
 
 // the array wrapper prevents distributive conditional types
 // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
 type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
-  ? // scalars only support variable input
-    Variable<S | null | undefined, any, any> | AllowedInlineScalars<S> | null | undefined
-  : [T] extends [CustomScalar<infer S>]
-  ? Variable<S, any, any> | AllowedInlineScalars<S>
-  : [T] extends [$Atomic]
-  ? Variable<T, any, any> | T
-  : T extends ReadonlyArray<infer I>
-  ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
-  : T extends Record<string, any> | null | undefined
+  // scalars only support variable input
   ?
+    | Variable<S | null | undefined, any, any>
+    | AllowedInlineScalars<S>
+    | null
+    | undefined
+  : [T] extends [CustomScalar<infer S>]
+    ? Variable<S, any, any> | AllowedInlineScalars<S>
+  : [T] extends [$Atomic] ? Variable<T, any, any> | T
+  : T extends ReadonlyArray<infer I>
+    ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
+  : T extends Record<string, any> | null | undefined ?
       | VariableWithoutScalars<T | null | undefined, any>
       | null
       | undefined
       | { [K in keyof T]: VariabledInput<T[K]> }
       | T
-  : T extends Record<string, any>
-  ? VariableWithoutScalars<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
-  : never
+  : T extends Record<string, any> ?
+      | VariableWithoutScalars<T, any>
+      | { [K in keyof T]: VariabledInput<T[K]> }
+      | T
+  : never;
 
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
-  ? I
-  : never
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends
+  (k: infer I) => void ? I
+  : never;
 
 /**
  * Creates a new query variable
  *
  * @param name The variable name
  */
-export const $ = <Type, Name extends string>(name: Name): Variable<Type, Name, undefined> => {
-  return new Variable(name, undefined)
-}
+export const $ = <Type, Name extends string>(
+  name: Name,
+): Variable<Type, Name, undefined> => {
+  return new Variable(name, undefined);
+};
 
 /**
  * Creates a new query variable. A value will be required even if the input is optional
  *
  * @param name The variable name
  */
-export const $$ = <Type, Name extends string>(name: Name): Variable<NonNullable<Type>, Name, true> => {
-  return new Variable(name, true)
-}
+export const $$ = <Type, Name extends string>(
+  name: Name,
+): Variable<NonNullable<Type>, Name, true> => {
+  return new Variable(name, true);
+};
 
 type SelectOptions = {
-  argTypes?: { [key: string]: string }
-  args?: { [key: string]: any }
-  selection?: Selection<any>
-}
+  argTypes?: { [key: string]: string };
+  args?: { [key: string]: any };
+  selection?: Selection<any>;
+};
 
 class $Field<Name extends string, Type, Vars = {}> {
-  public kind: 'field' = 'field'
-  public type!: Type
+  public kind: "field" = "field";
+  public type!: Type;
 
-  public vars!: Vars
-  public alias: string | null = null
+  public vars!: Vars;
+  public alias: string | null = null;
 
   constructor(public name: Name, public options: SelectOptions) {}
 
   as<Rename extends string>(alias: Rename): $Field<Rename, Type, Vars> {
-    const f = new $Field(this.name, this.options)
-    f.alias = alias
-    return f as any
+    const f = new $Field(this.name, this.options);
+    f.alias = alias;
+    return f as any;
   }
 }
 
@@ -105,115 +118,128 @@ class $Base<Name extends string> {
 
   protected $_select<Key extends string>(
     name: Key,
-    options: SelectOptions = {}
+    options: SelectOptions = {},
   ): $Field<Key, any, any> {
-    return new $Field(name, options)
+    return new $Field(name, options);
   }
 }
 
 class $Union<T, Name extends string> extends $Base<Name> {
-  protected $$type!: T
+  protected $$type!: T;
 
-  constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
-    super($$name)
+  constructor(
+    private selectorClasses: { [K in keyof T]: { new (): T[K] } },
+    $$name: Name,
+  ) {
+    super($$name);
   }
 
   $on<Type extends keyof T, Sel extends Selection<T[Type]>>(
     alternative: Type,
-    selectorFn: (selector: T[Type]) => [...Sel]
+    selectorFn: (selector: T[Type]) => [...Sel],
   ): $UnionSelection<GetOutput<Sel>, GetVariables<Sel>> {
-    const selection = selectorFn(new this.selectorClasses[alternative]())
+    const selection = selectorFn(new this.selectorClasses[alternative]());
 
-    return new $UnionSelection(alternative as string, selection)
+    return new $UnionSelection(alternative as string, selection);
   }
 }
 
 class $Interface<T, Name extends string> extends $Base<Name> {
-  protected $$type!: T
+  protected $$type!: T;
 
-  constructor(private selectorClasses: { [K in keyof T]: { new (): T[K] } }, $$name: Name) {
-    super($$name)
+  constructor(
+    private selectorClasses: { [K in keyof T]: { new (): T[K] } },
+    $$name: Name,
+  ) {
+    super($$name);
   }
   $on<Type extends keyof T, Sel extends Selection<T[Type]>>(
     alternative: Type,
-    selectorFn: (selector: T[Type]) => [...Sel]
+    selectorFn: (selector: T[Type]) => [...Sel],
   ): $UnionSelection<GetOutput<Sel>, GetVariables<Sel>> {
-    const selection = selectorFn(new this.selectorClasses[alternative]())
+    const selection = selectorFn(new this.selectorClasses[alternative]());
 
-    return new $UnionSelection(alternative as string, selection)
+    return new $UnionSelection(alternative as string, selection);
   }
 }
 
 class $UnionSelection<T, Vars> {
-  public kind: 'union' = 'union'
-  protected vars!: Vars
-  constructor(public alternativeName: string, public alternativeSelection: Selection<T>) {}
+  public kind: "union" = "union";
+  protected vars!: Vars;
+  constructor(
+    public alternativeName: string,
+    public alternativeSelection: Selection<T>,
+  ) {}
 }
 
-type Selection<_any> = ReadonlyArray<$Field<any, any, any> | $UnionSelection<any, any>>
+type Selection<_any> = ReadonlyArray<
+  $Field<any, any, any> | $UnionSelection<any, any>
+>;
 
-type NeverNever<T> = [T] extends [never] ? {} : T
+type NeverNever<T> = [T] extends [never] ? {} : T;
 
-type Simplify<T> = { [K in keyof T]: T[K] } & {}
+type Simplify<T> = { [K in keyof T]: T[K] } & {};
 
-type LeafType<T> = T extends CustomScalar<infer S> ? S : T
+type LeafType<T> = T extends CustomScalar<infer S> ? S : T;
 
 export type GetOutput<X extends Selection<any>> = Simplify<
-  UnionToIntersection<
+  & UnionToIntersection<
     {
       [I in keyof X]: X[I] extends $Field<infer Name, infer Type, any>
         ? { [K in Name]: LeafType<Type> }
-        : never
+        : never;
     }[keyof X & number]
-  > &
-    NeverNever<
-      {
-        [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type> : never
-      }[keyof X & number]
-    >
->
+  >
+  & NeverNever<
+    {
+      [I in keyof X]: X[I] extends $UnionSelection<infer Type, any>
+        ? LeafType<Type>
+        : never;
+    }[keyof X & number]
+  >
+>;
 
 type PossiblyOptionalVar<VName extends string, VType> = null extends VType
   ? { [key in VName]?: VType }
-  : { [key in VName]: VType }
+  : { [key in VName]: VType };
 
-type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer VName, any>
-  ? PossiblyOptionalVar<VName, VType>
-  : // Avoid generating an index signature for possibly undefined or null inputs.
+type ExtractInputVariables<Inputs> = Inputs extends
+  Variable<infer VType, infer VName, any> ? PossiblyOptionalVar<VName, VType>
+  // Avoid generating an index signature for possibly undefined or null inputs.
   // The compiler incorrectly infers null or undefined, and we must force access the Inputs
   // type to convince the compiler its "never", while still retaining {} as the result
   // for null and undefined cases
   // Works around issue 79
-  Inputs extends null | undefined
-  ? { [K in keyof Inputs]: Inputs[K] }
-  : Inputs extends $Atomic
-  ? {}
-  : Inputs extends any[] | readonly any[]
-  ? UnionToIntersection<
-      { [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs & number]
+  : Inputs extends null | undefined ? { [K in keyof Inputs]: Inputs[K] }
+  : Inputs extends $Atomic ? {}
+  : Inputs extends any[] | readonly any[] ? UnionToIntersection<
+      {
+        [K in keyof Inputs]: ExtractInputVariables<Inputs[K]>;
+      }[keyof Inputs & number]
     >
-  : UnionToIntersection<{ [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs]>
+  : UnionToIntersection<
+    { [K in keyof Inputs]: ExtractInputVariables<Inputs[K]> }[keyof Inputs]
+  >;
 
-export type GetVariables<Sel extends Selection<any>, ExtraVars = {}> = UnionToIntersection<
-  {
-    [I in keyof Sel]: Sel[I] extends $Field<any, any, infer Vars>
-      ? Vars
-      : Sel[I] extends $UnionSelection<any, infer Vars>
-      ? Vars
-      : never
-  }[keyof Sel & number]
-> &
-  ExtractInputVariables<ExtraVars>
+export type GetVariables<Sel extends Selection<any>, ExtraVars = {}> =
+  & UnionToIntersection<
+    {
+      [I in keyof Sel]: Sel[I] extends $Field<any, any, infer Vars> ? Vars
+        : Sel[I] extends $UnionSelection<any, infer Vars> ? Vars
+        : never;
+    }[keyof Sel & number]
+  >
+  & ExtractInputVariables<ExtraVars>;
 
 type ArgVarType = {
-  type: string
-  isRequired: boolean
+  type: string;
+  isRequired: boolean;
   array: {
-    isRequired: boolean
-  } | null
-}
+    isRequired: boolean;
+  } | null;
+};
 
-const arrRegex = /\[(.*?)\]/
+const arrRegex = /\[(.*?)\]/;
 
 /**
  * Converts graphql string type to `ArgVarType`
@@ -221,452 +247,514 @@ const arrRegex = /\[(.*?)\]/
  * @returns
  */
 function getArgVarType(input: string): ArgVarType {
-  const array = input.includes('[')
+  const array = input.includes("[")
     ? {
-        isRequired: input.endsWith('!'),
-      }
-    : null
+      isRequired: input.endsWith("!"),
+    }
+    : null;
 
-  const type = array ? arrRegex.exec(input)![1]! : input
-  const isRequired = type.endsWith('!')
+  const type = array ? arrRegex.exec(input)![1]! : input;
+  const isRequired = type.endsWith("!");
 
   return {
     array,
     isRequired: isRequired,
-    type: type.replace('!', ''),
-  }
+    type: type.replace("!", ""),
+  };
 }
 
 function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
-  const variables = new Map<string, { variable: Variable<any, any, any>; type: ArgVarType }>()
+  const variables = new Map<
+    string,
+    { variable: Variable<any, any, any>; type: ArgVarType }
+  >();
 
   function stringifyArgs(
     args: any,
     argTypes: { [key: string]: string },
-    argVarType?: ArgVarType
+    argVarType?: ArgVarType,
   ): string {
     switch (typeof args) {
-      case 'string': {
-        const cleanType = argVarType!.type
-        if ($Enums.has(cleanType!)) return args
-        else return JSON.stringify(args)
+      case "string": {
+        const cleanType = argVarType!.type;
+        if ($Enums.has(cleanType!)) return args;
+        else return JSON.stringify(args);
       }
-      case 'number':
-      case 'boolean':
-        return JSON.stringify(args)
+      case "number":
+      case "boolean":
+        return JSON.stringify(args);
       default: {
-        if (args == null) return 'null'
+        if (args == null) return "null";
         if (VariableName in (args as any)) {
-          if (!argVarType)
-            throw new globalThis.Error('Cannot use variabe as sole unnamed field argument')
-          const variable = args as Variable<any, any, any>
-          const argVarName = variable[VariableName]
-          variables.set(argVarName, { type: argVarType, variable: variable })
-          return '$' + argVarName
+          if (!argVarType) {
+            throw new globalThis.Error(
+              "Cannot use variabe as sole unnamed field argument",
+            );
+          }
+          const variable = args as Variable<any, any, any>;
+          const argVarName = variable[VariableName];
+          variables.set(argVarName, { type: argVarType, variable: variable });
+          return "$" + argVarName;
         }
-        if (Array.isArray(args))
-          return '[' + args.map(arg => stringifyArgs(arg, argTypes, argVarType)).join(',') + ']'
-        const wrapped = (content: string) => (argVarType ? '{' + content + '}' : content)
+        if (Array.isArray(args)) {
+          return "[" + args.map((arg) =>
+            stringifyArgs(arg, argTypes, argVarType)
+          ).join(",") + "]";
+        }
+        const wrapped = (
+          content: string,
+        ) => (argVarType ? "{" + content + "}" : content);
         return wrapped(
           Array.from(Object.entries(args))
             .map(([key, val]) => {
-              let argTypeForKey = argTypes[key]
+              let argTypeForKey = argTypes[key];
               if (!argTypeForKey) {
-                throw new globalThis.Error(`Argument type for ${key} not found`)
+                throw new globalThis.Error(
+                  `Argument type for ${key} not found`,
+                );
               }
-              const cleanType = argTypeForKey.replace('[', '').replace(']', '').replace(/!/g, '')
+              const cleanType = argTypeForKey.replace("[", "").replace("]", "")
+                .replace(/!/g, "");
               return (
                 key +
-                ':' +
-                stringifyArgs(val, $InputTypes[cleanType]!, getArgVarType(argTypeForKey))
-              )
+                ":" +
+                stringifyArgs(
+                  val,
+                  $InputTypes[cleanType]!,
+                  getArgVarType(argTypeForKey),
+                )
+              );
             })
-            .join(',')
-        )
+            .join(","),
+        );
       }
     }
   }
 
-  function extractTextAndVars(field: $Field<any, any, any> | $UnionSelection<any, any>) {
-    if (field.kind === 'field') {
-      let retVal = field.name
-      if (field.alias) retVal = field.alias + ':' + retVal
+  function extractTextAndVars(
+    field: $Field<any, any, any> | $UnionSelection<any, any>,
+  ) {
+    if (field.kind === "field") {
+      let retVal = field.name;
+      if (field.alias) retVal = field.alias + ":" + retVal;
       const args = field.options.args,
-        argTypes = field.options.argTypes
+        argTypes = field.options.argTypes;
       if (args && Object.keys(args).length > 0) {
-        retVal += '(' + stringifyArgs(args, argTypes!) + ')'
+        retVal += "(" + stringifyArgs(args, argTypes!) + ")";
       }
-      let sel = field.options.selection
+      let sel = field.options.selection;
       if (sel) {
-        retVal += '{'
+        retVal += "{";
         for (let subField of sel) {
-          retVal += extractTextAndVars(subField)
+          retVal += extractTextAndVars(subField);
         }
-        retVal += '}'
+        retVal += "}";
       }
-      return retVal + ' '
-    } else if (field.kind === 'union') {
-      let retVal = '... on ' + field.alternativeName + ' {'
+      return retVal + " ";
+    } else if (field.kind === "union") {
+      let retVal = "... on " + field.alternativeName + " {";
       for (let subField of field.alternativeSelection) {
-        retVal += extractTextAndVars(subField)
+        retVal += extractTextAndVars(subField);
       }
-      retVal += '}'
+      retVal += "}";
 
-      return retVal + ' '
+      return retVal + " ";
     } else {
-      throw new globalThis.Error('Uknown field kind')
+      throw new globalThis.Error("Uknown field kind");
     }
   }
 
-  const queryRaw = extractTextAndVars(field)!
+  const queryRaw = extractTextAndVars(field)!;
 
-  const queryBody = queryRaw.substring(queryRaw.indexOf('{'))
+  const queryBody = queryRaw.substring(queryRaw.indexOf("{"));
 
-  const varList = Array.from(variables.entries())
-  let ret = prefix
+  const varList = Array.from(variables.entries());
+  let ret = prefix;
   if (varList.length) {
-    ret +=
-      '(' +
+    ret += "(" +
       varList
         .map(([name, { type: kind, variable }]) => {
-          let type = kind.array ? '[' : ''
-          type += kind.type
-          if (kind.isRequired) type += '!'
-          if (kind.array) type += kind.array.isRequired ? ']!' : ']'
+          let type = kind.array ? "[" : "";
+          type += kind.type;
+          if (kind.isRequired) type += "!";
+          if (kind.array) type += kind.array.isRequired ? "]!" : "]";
 
-          if (!type.endsWith('!') && variable.isRequired === true) {
-            type += '!'
+          if (!type.endsWith("!") && variable.isRequired === true) {
+            type += "!";
           }
 
-          return '$' + name + ':' + type
+          return "$" + name + ":" + type;
         })
-        .join(',') +
-      ')'
+        .join(",") +
+      ")";
   }
-  ret += queryBody
+  ret += queryBody;
 
-  return ret
+  return ret;
 }
 
 export type OutputTypeOf<T> = T extends $Interface<infer Subtypes, any>
   ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
   : T extends $Union<infer Subtypes, any>
-  ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
-  : T extends $Base<any>
-  ? { [K in keyof T]?: OutputTypeOf<T[K]> }
-  : [T] extends [$Field<any, infer FieldType, any>]
-  ? FieldType
+    ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
+  : T extends $Base<any> ? { [K in keyof T]?: OutputTypeOf<T[K]> }
+  : [T] extends [$Field<any, infer FieldType, any>] ? FieldType
   : [T] extends [(selFn: (arg: infer Inner) => any) => any]
-  ? OutputTypeOf<Inner>
+    ? OutputTypeOf<Inner>
   : [T] extends [(args: any, selFn: (arg: infer Inner) => any) => any]
-  ? OutputTypeOf<Inner>
-  : never
+    ? OutputTypeOf<Inner>
+  : never;
 
-export type QueryOutputType<T extends TypedDocumentNode<any>> = T extends TypedDocumentNode<
-  infer Out
->
-  ? Out
-  : never
+export type QueryOutputType<T extends TypedDocumentNode<any>> = T extends
+  TypedDocumentNode<
+    infer Out
+  > ? Out
+  : never;
 
-export type QueryInputType<T extends TypedDocumentNode<any>> = T extends TypedDocumentNode<
-  any,
-  infer In
->
-  ? In
-  : never
+export type QueryInputType<T extends TypedDocumentNode<any>> = T extends
+  TypedDocumentNode<
+    any,
+    infer In
+  > ? In
+  : never;
 
 export function fragment<T, Sel extends Selection<T>>(
   GQLType: { new (): T },
-  selectFn: (selector: T) => [...Sel]
+  selectFn: (selector: T) => [...Sel],
 ) {
-  return selectFn(new GQLType())
+  return selectFn(new GQLType());
 }
 
-type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends () => infer R
-  ? R
-  : never
+type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends
+  () => infer R ? R
+  : never;
 
 // TS4.0+
-type Push<T extends any[], V> = [...T, V]
+type Push<T extends any[], V> = [...T, V];
 
 // TS4.1+
-type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = true extends N
-  ? []
-  : Push<TuplifyUnion<Exclude<T, L>>, L>
+type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> =
+  true extends N ? []
+    : Push<TuplifyUnion<Exclude<T, L>>, L>;
 
 type AllFieldProperties<I> = {
-  [K in keyof I]: I[K] extends $Field<infer Name, infer Type, any> ? $Field<Name, Type, any> : never
-}
+  [K in keyof I]: I[K] extends $Field<infer Name, infer Type, any>
+    ? $Field<Name, Type, any>
+    : never;
+};
 
-type ValueOf<T> = T[keyof T]
+type ValueOf<T> = T[keyof T];
 
-export type AllFields<T> = TuplifyUnion<ValueOf<AllFieldProperties<T>>>
+export type AllFields<T> = TuplifyUnion<ValueOf<AllFieldProperties<T>>>;
 
 export function all<I extends $Base<any>>(instance: I) {
-  const prototype = Object.getPrototypeOf(instance)
+  const prototype = Object.getPrototypeOf(instance);
   const allFields = Object.getOwnPropertyNames(prototype)
-    .map(k => prototype[k])
-    .filter(o => o?.kind === 'field')
-    .map(o => o?.name) as (keyof typeof instance)[]
-  return allFields.map(fieldName => instance?.[fieldName]) as any as AllFields<I>
+    .map((k) => prototype[k])
+    .filter((o) => o?.kind === "field")
+    .map((o) => o?.name) as (keyof typeof instance)[];
+  return allFields.map((fieldName) =>
+    instance?.[fieldName]
+  ) as any as AllFields<I>;
 }
 
+type $Atomic = number | string | boolean | null | undefined;
 
-type $Atomic = number | string | boolean | null | undefined
-
-let $Enums = new Set<string>([])
-
-
+let $Enums = new Set<string>([]);
 
 /**
  * A single film.
  */
 export class Film extends $Base<"Film"> {
   constructor() {
-    super("Film")
+    super("Film");
   }
 
-  
-      
-      characterConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<FilmCharactersConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: FilmCharactersConnection) => [...Sel]):$Field<"characterConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-characterConnection<Sel extends Selection<FilmCharactersConnection>>(selectorFn: (s: FilmCharactersConnection) => [...Sel]):$Field<"characterConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-characterConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  characterConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<FilmCharactersConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: FilmCharactersConnection) => [...Sel],
+  ): $Field<
+    "characterConnection",
+    GetOutput<Sel> | null,
+    GetVariables<Sel, Args>
+  >;
+  characterConnection<Sel extends Selection<FilmCharactersConnection>>(
+    selectorFn: (s: FilmCharactersConnection) => [...Sel],
+  ): $Field<"characterConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  characterConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new FilmCharactersConnection)
-      };
-      return this.$_select("characterConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new FilmCharactersConnection()),
+    };
+    return this.$_select("characterConnection", options as any) as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was created.
- */
-      get created(): $Field<"created", string | null>  {
-       return this.$_select("created") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was created.
+   */
+  get created(): $Field<"created", string | null> {
+    return this.$_select("created") as any;
+  }
 
-      
-/**
- * The name of the director of this film.
- */
-      get director(): $Field<"director", string | null>  {
-       return this.$_select("director") as any
-      }
+  /**
+   * The name of the director of this film.
+   */
+  get director(): $Field<"director", string | null> {
+    return this.$_select("director") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was edited.
- */
-      get edited(): $Field<"edited", string | null>  {
-       return this.$_select("edited") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was edited.
+   */
+  get edited(): $Field<"edited", string | null> {
+    return this.$_select("edited") as any;
+  }
 
-      
-/**
- * The episode number of this film.
- */
-      get episodeID(): $Field<"episodeID", number | null>  {
-       return this.$_select("episodeID") as any
-      }
+  /**
+   * The episode number of this film.
+   */
+  get episodeID(): $Field<"episodeID", number | null> {
+    return this.$_select("episodeID") as any;
+  }
 
-      
-/**
- * The ID of an object
- */
-      get id(): $Field<"id", string>  {
-       return this.$_select("id") as any
-      }
+  /**
+   * The ID of an object
+   */
+  get id(): $Field<"id", string> {
+    return this.$_select("id") as any;
+  }
 
-      
-/**
- * The opening paragraphs at the beginning of this film.
- */
-      get openingCrawl(): $Field<"openingCrawl", string | null>  {
-       return this.$_select("openingCrawl") as any
-      }
+  /**
+   * The opening paragraphs at the beginning of this film.
+   */
+  get openingCrawl(): $Field<"openingCrawl", string | null> {
+    return this.$_select("openingCrawl") as any;
+  }
 
-      
-      planetConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<FilmPlanetsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: FilmPlanetsConnection) => [...Sel]):$Field<"planetConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-planetConnection<Sel extends Selection<FilmPlanetsConnection>>(selectorFn: (s: FilmPlanetsConnection) => [...Sel]):$Field<"planetConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-planetConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  planetConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<FilmPlanetsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: FilmPlanetsConnection) => [...Sel],
+  ): $Field<"planetConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  planetConnection<Sel extends Selection<FilmPlanetsConnection>>(
+    selectorFn: (s: FilmPlanetsConnection) => [...Sel],
+  ): $Field<"planetConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  planetConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new FilmPlanetsConnection)
-      };
-      return this.$_select("planetConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new FilmPlanetsConnection()),
+    };
+    return this.$_select("planetConnection", options as any) as any;
+  }
 
-      
-/**
- * The name(s) of the producer(s) of this film.
- */
-      get producers(): $Field<"producers", Readonly<Array<string | null>> | null>  {
-       return this.$_select("producers") as any
-      }
+  /**
+   * The name(s) of the producer(s) of this film.
+   */
+  get producers(): $Field<"producers", Readonly<Array<string | null>> | null> {
+    return this.$_select("producers") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of film release at original creator country.
- */
-      get releaseDate(): $Field<"releaseDate", string | null>  {
-       return this.$_select("releaseDate") as any
-      }
+  /**
+   * The ISO 8601 date format of film release at original creator country.
+   */
+  get releaseDate(): $Field<"releaseDate", string | null> {
+    return this.$_select("releaseDate") as any;
+  }
 
-      
-      speciesConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<FilmSpeciesConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: FilmSpeciesConnection) => [...Sel]):$Field<"speciesConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-speciesConnection<Sel extends Selection<FilmSpeciesConnection>>(selectorFn: (s: FilmSpeciesConnection) => [...Sel]):$Field<"speciesConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-speciesConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  speciesConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<FilmSpeciesConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: FilmSpeciesConnection) => [...Sel],
+  ): $Field<
+    "speciesConnection",
+    GetOutput<Sel> | null,
+    GetVariables<Sel, Args>
+  >;
+  speciesConnection<Sel extends Selection<FilmSpeciesConnection>>(
+    selectorFn: (s: FilmSpeciesConnection) => [...Sel],
+  ): $Field<"speciesConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  speciesConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new FilmSpeciesConnection)
-      };
-      return this.$_select("speciesConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new FilmSpeciesConnection()),
+    };
+    return this.$_select("speciesConnection", options as any) as any;
+  }
 
-      
-      starshipConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<FilmStarshipsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: FilmStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-starshipConnection<Sel extends Selection<FilmStarshipsConnection>>(selectorFn: (s: FilmStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-starshipConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  starshipConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<FilmStarshipsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: FilmStarshipsConnection) => [...Sel],
+  ): $Field<
+    "starshipConnection",
+    GetOutput<Sel> | null,
+    GetVariables<Sel, Args>
+  >;
+  starshipConnection<Sel extends Selection<FilmStarshipsConnection>>(
+    selectorFn: (s: FilmStarshipsConnection) => [...Sel],
+  ): $Field<"starshipConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  starshipConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new FilmStarshipsConnection)
-      };
-      return this.$_select("starshipConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new FilmStarshipsConnection()),
+    };
+    return this.$_select("starshipConnection", options as any) as any;
+  }
 
-      
-/**
- * The title of this film.
- */
-      get title(): $Field<"title", string | null>  {
-       return this.$_select("title") as any
-      }
+  /**
+   * The title of this film.
+   */
+  get title(): $Field<"title", string | null> {
+    return this.$_select("title") as any;
+  }
 
-      
-      vehicleConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<FilmVehiclesConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: FilmVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-vehicleConnection<Sel extends Selection<FilmVehiclesConnection>>(selectorFn: (s: FilmVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-vehicleConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  vehicleConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<FilmVehiclesConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: FilmVehiclesConnection) => [...Sel],
+  ): $Field<
+    "vehicleConnection",
+    GetOutput<Sel> | null,
+    GetVariables<Sel, Args>
+  >;
+  vehicleConnection<Sel extends Selection<FilmVehiclesConnection>>(
+    selectorFn: (s: FilmVehiclesConnection) => [...Sel],
+  ): $Field<"vehicleConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  vehicleConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new FilmVehiclesConnection)
-      };
-      return this.$_select("vehicleConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new FilmVehiclesConnection()),
+    };
+    return this.$_select("vehicleConnection", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
-export class FilmCharactersConnection extends $Base<"FilmCharactersConnection"> {
+export class FilmCharactersConnection
+  extends $Base<"FilmCharactersConnection"> {
   constructor() {
-    super("FilmCharactersConnection")
+    super("FilmCharactersConnection");
   }
 
-  
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -674,141 +762,115 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      characters<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"characters", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  characters<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<
+    "characters",
+    Array<GetOutput<Sel> | null> | null,
+    GetVariables<Sel>
+  > {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("characters", options as any) as any;
+  }
 
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("characters", options as any) as any
-    }
-  
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<FilmCharactersEdge>>(
+    selectorFn: (s: FilmCharactersEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new FilmCharactersEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<FilmCharactersEdge>>(selectorFn: (s: FilmCharactersEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-        selection: selectorFn(new FilmCharactersEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
-
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class FilmCharactersEdge extends $Base<"FilmCharactersEdge"> {
   constructor() {
-    super("FilmCharactersEdge")
+    super("FilmCharactersEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class FilmPlanetsConnection extends $Base<"FilmPlanetsConnection"> {
   constructor() {
-    super("FilmPlanetsConnection")
+    super("FilmPlanetsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<FilmPlanetsEdge>>(selectorFn: (s: FilmPlanetsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<FilmPlanetsEdge>>(
+    selectorFn: (s: FilmPlanetsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new FilmPlanetsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new FilmPlanetsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -816,93 +878,75 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      planets<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"planets", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  planets<Sel extends Selection<Planet>>(
+    selectorFn: (s: Planet) => [...Sel],
+  ): $Field<"planets", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Planet()),
+    };
+    return this.$_select("planets", options as any) as any;
+  }
 
-        selection: selectorFn(new Planet)
-      };
-      return this.$_select("planets", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class FilmPlanetsEdge extends $Base<"FilmPlanetsEdge"> {
   constructor() {
-    super("FilmPlanetsEdge")
+    super("FilmPlanetsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Planet)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Planet>>(
+    selectorFn: (s: Planet) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Planet()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class FilmsConnection extends $Base<"FilmsConnection"> {
   constructor() {
-    super("FilmsConnection")
+    super("FilmsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<FilmsEdge>>(selectorFn: (s: FilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<FilmsEdge>>(
+    selectorFn: (s: FilmsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new FilmsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new FilmsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -910,125 +954,99 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  films<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"films", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("films", options as any) as any;
+  }
 
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("films", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class FilmsEdge extends $Base<"FilmsEdge"> {
   constructor() {
-    super("FilmsEdge")
+    super("FilmsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class FilmSpeciesConnection extends $Base<"FilmSpeciesConnection"> {
   constructor() {
-    super("FilmSpeciesConnection")
+    super("FilmSpeciesConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<FilmSpeciesEdge>>(selectorFn: (s: FilmSpeciesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<FilmSpeciesEdge>>(
+    selectorFn: (s: FilmSpeciesEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new FilmSpeciesEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new FilmSpeciesEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -1036,109 +1054,87 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  species<Sel extends Selection<Species>>(
+    selectorFn: (s: Species) => [...Sel],
+  ): $Field<"species", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Species()),
+    };
+    return this.$_select("species", options as any) as any;
+  }
 
-        selection: selectorFn(new Species)
-      };
-      return this.$_select("species", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class FilmSpeciesEdge extends $Base<"FilmSpeciesEdge"> {
   constructor() {
-    super("FilmSpeciesEdge")
+    super("FilmSpeciesEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Species)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Species>>(
+    selectorFn: (s: Species) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Species()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class FilmStarshipsConnection extends $Base<"FilmStarshipsConnection"> {
   constructor() {
-    super("FilmStarshipsConnection")
+    super("FilmStarshipsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<FilmStarshipsEdge>>(selectorFn: (s: FilmStarshipsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<FilmStarshipsEdge>>(
+    selectorFn: (s: FilmStarshipsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new FilmStarshipsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new FilmStarshipsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -1146,120 +1142,101 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      starships<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starships", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  starships<Sel extends Selection<Starship>>(
+    selectorFn: (s: Starship) => [...Sel],
+  ): $Field<
+    "starships",
+    Array<GetOutput<Sel> | null> | null,
+    GetVariables<Sel>
+  > {
+    const options = {
+      selection: selectorFn(new Starship()),
+    };
+    return this.$_select("starships", options as any) as any;
+  }
 
-        selection: selectorFn(new Starship)
-      };
-      return this.$_select("starships", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class FilmStarshipsEdge extends $Base<"FilmStarshipsEdge"> {
   constructor() {
-    super("FilmStarshipsEdge")
+    super("FilmStarshipsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Starship)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Starship>>(
+    selectorFn: (s: Starship) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Starship()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class FilmVehiclesConnection extends $Base<"FilmVehiclesConnection"> {
   constructor() {
-    super("FilmVehiclesConnection")
+    super("FilmVehiclesConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<FilmVehiclesEdge>>(selectorFn: (s: FilmVehiclesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<FilmVehiclesEdge>>(
+    selectorFn: (s: FilmVehiclesEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new FilmVehiclesEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new FilmVehiclesEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -1267,159 +1244,151 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      vehicles<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicles", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Vehicle)
-      };
-      return this.$_select("vehicles", options as any) as any
-    }
-  
+  vehicles<Sel extends Selection<Vehicle>>(
+    selectorFn: (s: Vehicle) => [...Sel],
+  ): $Field<
+    "vehicles",
+    Array<GetOutput<Sel> | null> | null,
+    GetVariables<Sel>
+  > {
+    const options = {
+      selection: selectorFn(new Vehicle()),
+    };
+    return this.$_select("vehicles", options as any) as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class FilmVehiclesEdge extends $Base<"FilmVehiclesEdge"> {
   constructor() {
-    super("FilmVehiclesEdge")
+    super("FilmVehiclesEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Vehicle)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Vehicle>>(
+    selectorFn: (s: Vehicle) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Vehicle()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * An object with an ID
  */
-export class Node extends $Interface<{Film: Film,Person: Person,Planet: Planet,Species: Species,Starship: Starship,Vehicle: Vehicle}, "Node"> {
+export class Node extends $Interface<
+  {
+    Film: Film;
+    Person: Person;
+    Planet: Planet;
+    Species: Species;
+    Starship: Starship;
+    Vehicle: Vehicle;
+  },
+  "Node"
+> {
   constructor() {
-    super({Film: Film,Person: Person,Planet: Planet,Species: Species,Starship: Starship,Vehicle: Vehicle}, "Node")
+    super({
+      Film: Film,
+      Person: Person,
+      Planet: Planet,
+      Species: Species,
+      Starship: Starship,
+      Vehicle: Vehicle,
+    }, "Node");
   }
-  
-      
-/**
- * The id of the object.
- */
-      get id(): $Field<"id", string>  {
-       return this.$_select("id") as any
-      }
-}
 
+  /**
+   * The id of the object.
+   */
+  get id(): $Field<"id", string> {
+    return this.$_select("id") as any;
+  }
+}
 
 /**
  * Information about pagination in a connection.
  */
 export class PageInfo extends $Base<"PageInfo"> {
   constructor() {
-    super("PageInfo")
+    super("PageInfo");
   }
 
-  
-      
-/**
- * When paginating forwards, the cursor to continue.
- */
-      get endCursor(): $Field<"endCursor", string | null>  {
-       return this.$_select("endCursor") as any
-      }
+  /**
+   * When paginating forwards, the cursor to continue.
+   */
+  get endCursor(): $Field<"endCursor", string | null> {
+    return this.$_select("endCursor") as any;
+  }
 
-      
-/**
- * When paginating forwards, are there more items?
- */
-      get hasNextPage(): $Field<"hasNextPage", boolean>  {
-       return this.$_select("hasNextPage") as any
-      }
+  /**
+   * When paginating forwards, are there more items?
+   */
+  get hasNextPage(): $Field<"hasNextPage", boolean> {
+    return this.$_select("hasNextPage") as any;
+  }
 
-      
-/**
- * When paginating backwards, are there more items?
- */
-      get hasPreviousPage(): $Field<"hasPreviousPage", boolean>  {
-       return this.$_select("hasPreviousPage") as any
-      }
+  /**
+   * When paginating backwards, are there more items?
+   */
+  get hasPreviousPage(): $Field<"hasPreviousPage", boolean> {
+    return this.$_select("hasPreviousPage") as any;
+  }
 
-      
-/**
- * When paginating backwards, the cursor to continue.
- */
-      get startCursor(): $Field<"startCursor", string | null>  {
-       return this.$_select("startCursor") as any
-      }
+  /**
+   * When paginating backwards, the cursor to continue.
+   */
+  get startCursor(): $Field<"startCursor", string | null> {
+    return this.$_select("startCursor") as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class PeopleConnection extends $Base<"PeopleConnection"> {
   constructor() {
-    super("PeopleConnection")
+    super("PeopleConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<PeopleEdge>>(selectorFn: (s: PeopleEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<PeopleEdge>>(
+    selectorFn: (s: PeopleEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PeopleEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new PeopleEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -1427,322 +1396,315 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      people<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"people", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  people<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"people", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("people", options as any) as any;
+  }
 
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("people", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class PeopleEdge extends $Base<"PeopleEdge"> {
   constructor() {
-    super("PeopleEdge")
+    super("PeopleEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * An individual person or character within the Star Wars universe.
  */
 export class Person extends $Base<"Person"> {
   constructor() {
-    super("Person")
+    super("Person");
   }
 
-  
-      
-/**
+  /**
  * The birth year of the person, using the in-universe standard of BBY or ABY -
 Before the Battle of Yavin or After the Battle of Yavin. The Battle of Yavin is
 a battle that occurs at the end of Star Wars episode IV: A New Hope.
  */
-      get birthYear(): $Field<"birthYear", string | null>  {
-       return this.$_select("birthYear") as any
-      }
+  get birthYear(): $Field<"birthYear", string | null> {
+    return this.$_select("birthYear") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was created.
- */
-      get created(): $Field<"created", string | null>  {
-       return this.$_select("created") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was created.
+   */
+  get created(): $Field<"created", string | null> {
+    return this.$_select("created") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was edited.
- */
-      get edited(): $Field<"edited", string | null>  {
-       return this.$_select("edited") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was edited.
+   */
+  get edited(): $Field<"edited", string | null> {
+    return this.$_select("edited") as any;
+  }
 
-      
-/**
+  /**
  * The eye color of this person. Will be "unknown" if not known or "n/a" if the
 person does not have an eye.
  */
-      get eyeColor(): $Field<"eyeColor", string | null>  {
-       return this.$_select("eyeColor") as any
-      }
+  get eyeColor(): $Field<"eyeColor", string | null> {
+    return this.$_select("eyeColor") as any;
+  }
 
-      
-      filmConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<PersonFilmsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: PersonFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<PersonFilmsConnection>>(selectorFn: (s: PersonFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-filmConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  filmConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<PersonFilmsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: PersonFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  filmConnection<Sel extends Selection<PersonFilmsConnection>>(
+    selectorFn: (s: PersonFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  filmConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new PersonFilmsConnection)
-      };
-      return this.$_select("filmConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new PersonFilmsConnection()),
+    };
+    return this.$_select("filmConnection", options as any) as any;
+  }
 
-      
-/**
+  /**
  * The gender of this person. Either "Male", "Female" or "unknown",
 "n/a" if the person does not have a gender.
  */
-      get gender(): $Field<"gender", string | null>  {
-       return this.$_select("gender") as any
-      }
+  get gender(): $Field<"gender", string | null> {
+    return this.$_select("gender") as any;
+  }
 
-      
-/**
+  /**
  * The hair color of this person. Will be "unknown" if not known or "n/a" if the
 person does not have hair.
  */
-      get hairColor(): $Field<"hairColor", string | null>  {
-       return this.$_select("hairColor") as any
-      }
+  get hairColor(): $Field<"hairColor", string | null> {
+    return this.$_select("hairColor") as any;
+  }
 
-      
-/**
- * The height of the person in centimeters.
- */
-      get height(): $Field<"height", number | null>  {
-       return this.$_select("height") as any
-      }
+  /**
+   * The height of the person in centimeters.
+   */
+  get height(): $Field<"height", number | null> {
+    return this.$_select("height") as any;
+  }
 
-      
-/**
- * A planet that this person was born on or inhabits.
- */
-      homeworld<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"homeworld", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A planet that this person was born on or inhabits.
+   */
+  homeworld<Sel extends Selection<Planet>>(
+    selectorFn: (s: Planet) => [...Sel],
+  ): $Field<"homeworld", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Planet()),
+    };
+    return this.$_select("homeworld", options as any) as any;
+  }
 
-        selection: selectorFn(new Planet)
-      };
-      return this.$_select("homeworld", options as any) as any
-    }
-  
+  /**
+   * The ID of an object
+   */
+  get id(): $Field<"id", string> {
+    return this.$_select("id") as any;
+  }
 
-      
-/**
- * The ID of an object
- */
-      get id(): $Field<"id", string>  {
-       return this.$_select("id") as any
-      }
+  /**
+   * The mass of the person in kilograms.
+   */
+  get mass(): $Field<"mass", number | null> {
+    return this.$_select("mass") as any;
+  }
 
-      
-/**
- * The mass of the person in kilograms.
- */
-      get mass(): $Field<"mass", number | null>  {
-       return this.$_select("mass") as any
-      }
+  /**
+   * The name of this person.
+   */
+  get name(): $Field<"name", string | null> {
+    return this.$_select("name") as any;
+  }
 
-      
-/**
- * The name of this person.
- */
-      get name(): $Field<"name", string | null>  {
-       return this.$_select("name") as any
-      }
+  /**
+   * The skin color of this person.
+   */
+  get skinColor(): $Field<"skinColor", string | null> {
+    return this.$_select("skinColor") as any;
+  }
 
-      
-/**
- * The skin color of this person.
- */
-      get skinColor(): $Field<"skinColor", string | null>  {
-       return this.$_select("skinColor") as any
-      }
+  /**
+   * The species that this person belongs to, or null if unknown.
+   */
+  species<Sel extends Selection<Species>>(
+    selectorFn: (s: Species) => [...Sel],
+  ): $Field<"species", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Species()),
+    };
+    return this.$_select("species", options as any) as any;
+  }
 
-      
-/**
- * The species that this person belongs to, or null if unknown.
- */
-      species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  starshipConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<PersonStarshipsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: PersonStarshipsConnection) => [...Sel],
+  ): $Field<
+    "starshipConnection",
+    GetOutput<Sel> | null,
+    GetVariables<Sel, Args>
+  >;
+  starshipConnection<Sel extends Selection<PersonStarshipsConnection>>(
+    selectorFn: (s: PersonStarshipsConnection) => [...Sel],
+  ): $Field<"starshipConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  starshipConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-        selection: selectorFn(new Species)
-      };
-      return this.$_select("species", options as any) as any
-    }
-  
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-      
-      starshipConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<PersonStarshipsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: PersonStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-starshipConnection<Sel extends Selection<PersonStarshipsConnection>>(selectorFn: (s: PersonStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-starshipConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+      selection: selectorFn(new PersonStarshipsConnection()),
+    };
+    return this.$_select("starshipConnection", options as any) as any;
+  }
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+  vehicleConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<PersonVehiclesConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: PersonVehiclesConnection) => [...Sel],
+  ): $Field<
+    "vehicleConnection",
+    GetOutput<Sel> | null,
+    GetVariables<Sel, Args>
+  >;
+  vehicleConnection<Sel extends Selection<PersonVehiclesConnection>>(
+    selectorFn: (s: PersonVehiclesConnection) => [...Sel],
+  ): $Field<"vehicleConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  vehicleConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-        selection: selectorFn(new PersonStarshipsConnection)
-      };
-      return this.$_select("starshipConnection", options as any) as any
-    }
-  
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-      
-      vehicleConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<PersonVehiclesConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: PersonVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-vehicleConnection<Sel extends Selection<PersonVehiclesConnection>>(selectorFn: (s: PersonVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-vehicleConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
-
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
-
-        selection: selectorFn(new PersonVehiclesConnection)
-      };
-      return this.$_select("vehicleConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new PersonVehiclesConnection()),
+    };
+    return this.$_select("vehicleConnection", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class PersonFilmsConnection extends $Base<"PersonFilmsConnection"> {
   constructor() {
-    super("PersonFilmsConnection")
+    super("PersonFilmsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<PersonFilmsEdge>>(selectorFn: (s: PersonFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<PersonFilmsEdge>>(
+    selectorFn: (s: PersonFilmsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PersonFilmsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new PersonFilmsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -1750,125 +1712,100 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  films<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"films", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("films", options as any) as any;
+  }
 
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("films", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class PersonFilmsEdge extends $Base<"PersonFilmsEdge"> {
   constructor() {
-    super("PersonFilmsEdge")
+    super("PersonFilmsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
-export class PersonStarshipsConnection extends $Base<"PersonStarshipsConnection"> {
+export class PersonStarshipsConnection
+  extends $Base<"PersonStarshipsConnection"> {
   constructor() {
-    super("PersonStarshipsConnection")
+    super("PersonStarshipsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<PersonStarshipsEdge>>(selectorFn: (s: PersonStarshipsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<PersonStarshipsEdge>>(
+    selectorFn: (s: PersonStarshipsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PersonStarshipsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new PersonStarshipsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -1876,120 +1813,102 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      starships<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starships", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  starships<Sel extends Selection<Starship>>(
+    selectorFn: (s: Starship) => [...Sel],
+  ): $Field<
+    "starships",
+    Array<GetOutput<Sel> | null> | null,
+    GetVariables<Sel>
+  > {
+    const options = {
+      selection: selectorFn(new Starship()),
+    };
+    return this.$_select("starships", options as any) as any;
+  }
 
-        selection: selectorFn(new Starship)
-      };
-      return this.$_select("starships", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class PersonStarshipsEdge extends $Base<"PersonStarshipsEdge"> {
   constructor() {
-    super("PersonStarshipsEdge")
+    super("PersonStarshipsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Starship)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Starship>>(
+    selectorFn: (s: Starship) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Starship()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
-export class PersonVehiclesConnection extends $Base<"PersonVehiclesConnection"> {
+export class PersonVehiclesConnection
+  extends $Base<"PersonVehiclesConnection"> {
   constructor() {
-    super("PersonVehiclesConnection")
+    super("PersonVehiclesConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<PersonVehiclesEdge>>(selectorFn: (s: PersonVehiclesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<PersonVehiclesEdge>>(
+    selectorFn: (s: PersonVehiclesEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PersonVehiclesEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new PersonVehiclesEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -1997,54 +1916,47 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      vehicles<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicles", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Vehicle)
-      };
-      return this.$_select("vehicles", options as any) as any
-    }
-  
+  vehicles<Sel extends Selection<Vehicle>>(
+    selectorFn: (s: Vehicle) => [...Sel],
+  ): $Field<
+    "vehicles",
+    Array<GetOutput<Sel> | null> | null,
+    GetVariables<Sel>
+  > {
+    const options = {
+      selection: selectorFn(new Vehicle()),
+    };
+    return this.$_select("vehicles", options as any) as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class PersonVehiclesEdge extends $Base<"PersonVehiclesEdge"> {
   constructor() {
-    super("PersonVehiclesEdge")
+    super("PersonVehiclesEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Vehicle)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Vehicle>>(
+    selectorFn: (s: Vehicle) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Vehicle()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A large mass, planet or planetoid in the Star Wars Universe, at the time of
@@ -2052,201 +1964,201 @@ export class PersonVehiclesEdge extends $Base<"PersonVehiclesEdge"> {
  */
 export class Planet extends $Base<"Planet"> {
   constructor() {
-    super("Planet")
+    super("Planet");
   }
 
-  
-      
-/**
- * The climates of this planet.
- */
-      get climates(): $Field<"climates", Readonly<Array<string | null>> | null>  {
-       return this.$_select("climates") as any
-      }
+  /**
+   * The climates of this planet.
+   */
+  get climates(): $Field<"climates", Readonly<Array<string | null>> | null> {
+    return this.$_select("climates") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was created.
- */
-      get created(): $Field<"created", string | null>  {
-       return this.$_select("created") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was created.
+   */
+  get created(): $Field<"created", string | null> {
+    return this.$_select("created") as any;
+  }
 
-      
-/**
- * The diameter of this planet in kilometers.
- */
-      get diameter(): $Field<"diameter", number | null>  {
-       return this.$_select("diameter") as any
-      }
+  /**
+   * The diameter of this planet in kilometers.
+   */
+  get diameter(): $Field<"diameter", number | null> {
+    return this.$_select("diameter") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was edited.
- */
-      get edited(): $Field<"edited", string | null>  {
-       return this.$_select("edited") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was edited.
+   */
+  get edited(): $Field<"edited", string | null> {
+    return this.$_select("edited") as any;
+  }
 
-      
-      filmConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<PlanetFilmsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: PlanetFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<PlanetFilmsConnection>>(selectorFn: (s: PlanetFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-filmConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  filmConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<PlanetFilmsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: PlanetFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  filmConnection<Sel extends Selection<PlanetFilmsConnection>>(
+    selectorFn: (s: PlanetFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  filmConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new PlanetFilmsConnection)
-      };
-      return this.$_select("filmConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new PlanetFilmsConnection()),
+    };
+    return this.$_select("filmConnection", options as any) as any;
+  }
 
-      
-/**
+  /**
  * A number denoting the gravity of this planet, where "1" is normal or 1 standard
 G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.
  */
-      get gravity(): $Field<"gravity", string | null>  {
-       return this.$_select("gravity") as any
-      }
+  get gravity(): $Field<"gravity", string | null> {
+    return this.$_select("gravity") as any;
+  }
 
-      
-/**
- * The ID of an object
- */
-      get id(): $Field<"id", string>  {
-       return this.$_select("id") as any
-      }
+  /**
+   * The ID of an object
+   */
+  get id(): $Field<"id", string> {
+    return this.$_select("id") as any;
+  }
 
-      
-/**
- * The name of this planet.
- */
-      get name(): $Field<"name", string | null>  {
-       return this.$_select("name") as any
-      }
+  /**
+   * The name of this planet.
+   */
+  get name(): $Field<"name", string | null> {
+    return this.$_select("name") as any;
+  }
 
-      
-/**
+  /**
  * The number of standard days it takes for this planet to complete a single orbit
 of its local star.
  */
-      get orbitalPeriod(): $Field<"orbitalPeriod", number | null>  {
-       return this.$_select("orbitalPeriod") as any
-      }
+  get orbitalPeriod(): $Field<"orbitalPeriod", number | null> {
+    return this.$_select("orbitalPeriod") as any;
+  }
 
-      
-/**
- * The average population of sentient beings inhabiting this planet.
- */
-      get population(): $Field<"population", number | null>  {
-       return this.$_select("population") as any
-      }
+  /**
+   * The average population of sentient beings inhabiting this planet.
+   */
+  get population(): $Field<"population", number | null> {
+    return this.$_select("population") as any;
+  }
 
-      
-      residentConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<PlanetResidentsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: PlanetResidentsConnection) => [...Sel]):$Field<"residentConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-residentConnection<Sel extends Selection<PlanetResidentsConnection>>(selectorFn: (s: PlanetResidentsConnection) => [...Sel]):$Field<"residentConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-residentConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  residentConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<PlanetResidentsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: PlanetResidentsConnection) => [...Sel],
+  ): $Field<
+    "residentConnection",
+    GetOutput<Sel> | null,
+    GetVariables<Sel, Args>
+  >;
+  residentConnection<Sel extends Selection<PlanetResidentsConnection>>(
+    selectorFn: (s: PlanetResidentsConnection) => [...Sel],
+  ): $Field<"residentConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  residentConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new PlanetResidentsConnection)
-      };
-      return this.$_select("residentConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new PlanetResidentsConnection()),
+    };
+    return this.$_select("residentConnection", options as any) as any;
+  }
 
-      
-/**
+  /**
  * The number of standard hours it takes for this planet to complete a single
 rotation on its axis.
  */
-      get rotationPeriod(): $Field<"rotationPeriod", number | null>  {
-       return this.$_select("rotationPeriod") as any
-      }
+  get rotationPeriod(): $Field<"rotationPeriod", number | null> {
+    return this.$_select("rotationPeriod") as any;
+  }
 
-      
-/**
+  /**
  * The percentage of the planet surface that is naturally occurring water or bodies
 of water.
  */
-      get surfaceWater(): $Field<"surfaceWater", number | null>  {
-       return this.$_select("surfaceWater") as any
-      }
+  get surfaceWater(): $Field<"surfaceWater", number | null> {
+    return this.$_select("surfaceWater") as any;
+  }
 
-      
-/**
- * The terrains of this planet.
- */
-      get terrains(): $Field<"terrains", Readonly<Array<string | null>> | null>  {
-       return this.$_select("terrains") as any
-      }
+  /**
+   * The terrains of this planet.
+   */
+  get terrains(): $Field<"terrains", Readonly<Array<string | null>> | null> {
+    return this.$_select("terrains") as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class PlanetFilmsConnection extends $Base<"PlanetFilmsConnection"> {
   constructor() {
-    super("PlanetFilmsConnection")
+    super("PlanetFilmsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<PlanetFilmsEdge>>(selectorFn: (s: PlanetFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<PlanetFilmsEdge>>(
+    selectorFn: (s: PlanetFilmsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PlanetFilmsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new PlanetFilmsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -2254,125 +2166,100 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  films<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"films", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("films", options as any) as any;
+  }
 
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("films", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class PlanetFilmsEdge extends $Base<"PlanetFilmsEdge"> {
   constructor() {
-    super("PlanetFilmsEdge")
+    super("PlanetFilmsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
-export class PlanetResidentsConnection extends $Base<"PlanetResidentsConnection"> {
+export class PlanetResidentsConnection
+  extends $Base<"PlanetResidentsConnection"> {
   constructor() {
-    super("PlanetResidentsConnection")
+    super("PlanetResidentsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<PlanetResidentsEdge>>(selectorFn: (s: PlanetResidentsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<PlanetResidentsEdge>>(
+    selectorFn: (s: PlanetResidentsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PlanetResidentsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new PlanetResidentsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -2380,109 +2267,91 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      residents<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"residents", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  residents<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<
+    "residents",
+    Array<GetOutput<Sel> | null> | null,
+    GetVariables<Sel>
+  > {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("residents", options as any) as any;
+  }
 
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("residents", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class PlanetResidentsEdge extends $Base<"PlanetResidentsEdge"> {
   constructor() {
-    super("PlanetResidentsEdge")
+    super("PlanetResidentsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class PlanetsConnection extends $Base<"PlanetsConnection"> {
   constructor() {
-    super("PlanetsConnection")
+    super("PlanetsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<PlanetsEdge>>(selectorFn: (s: PlanetsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<PlanetsEdge>>(
+    selectorFn: (s: PlanetsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PlanetsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new PlanetsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -2490,663 +2359,742 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      planets<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"planets", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  planets<Sel extends Selection<Planet>>(
+    selectorFn: (s: Planet) => [...Sel],
+  ): $Field<"planets", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Planet()),
+    };
+    return this.$_select("planets", options as any) as any;
+  }
 
-        selection: selectorFn(new Planet)
-      };
-      return this.$_select("planets", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class PlanetsEdge extends $Base<"PlanetsEdge"> {
   constructor() {
-    super("PlanetsEdge")
+    super("PlanetsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Planet)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Planet>>(
+    selectorFn: (s: Planet) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Planet()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 export class Root extends $Base<"Root"> {
   constructor() {
-    super("Root")
+    super("Root");
   }
 
-  
-      
-      allFilms<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<FilmsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: FilmsConnection) => [...Sel]):$Field<"allFilms", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-allFilms<Sel extends Selection<FilmsConnection>>(selectorFn: (s: FilmsConnection) => [...Sel]):$Field<"allFilms", GetOutput<Sel> | null , GetVariables<Sel>>
-allFilms(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  allFilms<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<FilmsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: FilmsConnection) => [...Sel],
+  ): $Field<"allFilms", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  allFilms<Sel extends Selection<FilmsConnection>>(
+    selectorFn: (s: FilmsConnection) => [...Sel],
+  ): $Field<"allFilms", GetOutput<Sel> | null, GetVariables<Sel>>;
+  allFilms(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new FilmsConnection)
-      };
-      return this.$_select("allFilms", options as any) as any
-    }
-  
+      selection: selectorFn(new FilmsConnection()),
+    };
+    return this.$_select("allFilms", options as any) as any;
+  }
 
-      
-      allPeople<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<PeopleConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: PeopleConnection) => [...Sel]):$Field<"allPeople", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-allPeople<Sel extends Selection<PeopleConnection>>(selectorFn: (s: PeopleConnection) => [...Sel]):$Field<"allPeople", GetOutput<Sel> | null , GetVariables<Sel>>
-allPeople(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  allPeople<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<PeopleConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: PeopleConnection) => [...Sel],
+  ): $Field<"allPeople", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  allPeople<Sel extends Selection<PeopleConnection>>(
+    selectorFn: (s: PeopleConnection) => [...Sel],
+  ): $Field<"allPeople", GetOutput<Sel> | null, GetVariables<Sel>>;
+  allPeople(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new PeopleConnection)
-      };
-      return this.$_select("allPeople", options as any) as any
-    }
-  
+      selection: selectorFn(new PeopleConnection()),
+    };
+    return this.$_select("allPeople", options as any) as any;
+  }
 
-      
-      allPlanets<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<PlanetsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: PlanetsConnection) => [...Sel]):$Field<"allPlanets", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-allPlanets<Sel extends Selection<PlanetsConnection>>(selectorFn: (s: PlanetsConnection) => [...Sel]):$Field<"allPlanets", GetOutput<Sel> | null , GetVariables<Sel>>
-allPlanets(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  allPlanets<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<PlanetsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: PlanetsConnection) => [...Sel],
+  ): $Field<"allPlanets", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  allPlanets<Sel extends Selection<PlanetsConnection>>(
+    selectorFn: (s: PlanetsConnection) => [...Sel],
+  ): $Field<"allPlanets", GetOutput<Sel> | null, GetVariables<Sel>>;
+  allPlanets(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new PlanetsConnection)
-      };
-      return this.$_select("allPlanets", options as any) as any
-    }
-  
+      selection: selectorFn(new PlanetsConnection()),
+    };
+    return this.$_select("allPlanets", options as any) as any;
+  }
 
-      
-      allSpecies<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<SpeciesConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: SpeciesConnection) => [...Sel]):$Field<"allSpecies", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-allSpecies<Sel extends Selection<SpeciesConnection>>(selectorFn: (s: SpeciesConnection) => [...Sel]):$Field<"allSpecies", GetOutput<Sel> | null , GetVariables<Sel>>
-allSpecies(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  allSpecies<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<SpeciesConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: SpeciesConnection) => [...Sel],
+  ): $Field<"allSpecies", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  allSpecies<Sel extends Selection<SpeciesConnection>>(
+    selectorFn: (s: SpeciesConnection) => [...Sel],
+  ): $Field<"allSpecies", GetOutput<Sel> | null, GetVariables<Sel>>;
+  allSpecies(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new SpeciesConnection)
-      };
-      return this.$_select("allSpecies", options as any) as any
-    }
-  
+      selection: selectorFn(new SpeciesConnection()),
+    };
+    return this.$_select("allSpecies", options as any) as any;
+  }
 
-      
-      allStarships<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<StarshipsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: StarshipsConnection) => [...Sel]):$Field<"allStarships", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-allStarships<Sel extends Selection<StarshipsConnection>>(selectorFn: (s: StarshipsConnection) => [...Sel]):$Field<"allStarships", GetOutput<Sel> | null , GetVariables<Sel>>
-allStarships(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  allStarships<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<StarshipsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: StarshipsConnection) => [...Sel],
+  ): $Field<"allStarships", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  allStarships<Sel extends Selection<StarshipsConnection>>(
+    selectorFn: (s: StarshipsConnection) => [...Sel],
+  ): $Field<"allStarships", GetOutput<Sel> | null, GetVariables<Sel>>;
+  allStarships(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new StarshipsConnection)
-      };
-      return this.$_select("allStarships", options as any) as any
-    }
-  
+      selection: selectorFn(new StarshipsConnection()),
+    };
+    return this.$_select("allStarships", options as any) as any;
+  }
 
-      
-      allVehicles<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<VehiclesConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: VehiclesConnection) => [...Sel]):$Field<"allVehicles", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-allVehicles<Sel extends Selection<VehiclesConnection>>(selectorFn: (s: VehiclesConnection) => [...Sel]):$Field<"allVehicles", GetOutput<Sel> | null , GetVariables<Sel>>
-allVehicles(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  allVehicles<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<VehiclesConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: VehiclesConnection) => [...Sel],
+  ): $Field<"allVehicles", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  allVehicles<Sel extends Selection<VehiclesConnection>>(
+    selectorFn: (s: VehiclesConnection) => [...Sel],
+  ): $Field<"allVehicles", GetOutput<Sel> | null, GetVariables<Sel>>;
+  allVehicles(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new VehiclesConnection)
-      };
-      return this.$_select("allVehicles", options as any) as any
-    }
-  
+      selection: selectorFn(new VehiclesConnection()),
+    };
+    return this.$_select("allVehicles", options as any) as any;
+  }
 
-      
-      film<Args extends VariabledInput<{
-        id?: string | null
-filmID?: string | null,
-      }>,Sel extends Selection<Film>>(args: ExactArgNames<Args, {
-        id?: string | null
-filmID?: string | null,
-      }>, selectorFn: (s: Film) => [...Sel]):$Field<"film", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-film<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"film", GetOutput<Sel> | null , GetVariables<Sel>>
-film(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  film<
+    Args extends VariabledInput<{
+      id?: string | null;
+      filmID?: string | null;
+    }>,
+    Sel extends Selection<Film>,
+  >(
+    args: ExactArgNames<Args, {
+      id?: string | null;
+      filmID?: string | null;
+    }>,
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"film", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  film<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"film", GetOutput<Sel> | null, GetVariables<Sel>>;
+  film(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              id: "ID",
-filmID: "ID"
-            },
-        args,
+    const options = {
+      argTypes: {
+        id: "ID",
+        filmID: "ID",
+      },
+      args,
 
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("film", options as any) as any
-    }
-  
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("film", options as any) as any;
+  }
 
-      
-/**
- * Fetches an object given its ID
- */
-      node<Args extends VariabledInput<{
-        id: string,
-      }>,Sel extends Selection<Node>>(args: ExactArgNames<Args, {
-        id: string,
-      }>, selectorFn: (s: Node) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel, Args>> {
-      
-      const options = {
-        argTypes: {
-              id: "ID!"
-            },
-        args,
+  /**
+   * Fetches an object given its ID
+   */
+  node<
+    Args extends VariabledInput<{
+      id: string;
+    }>,
+    Sel extends Selection<Node>,
+  >(
+    args: ExactArgNames<Args, {
+      id: string;
+    }>,
+    selectorFn: (s: Node) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel, Args>> {
+    const options = {
+      argTypes: {
+        id: "ID!",
+      },
+      args,
 
-        selection: selectorFn(new Node)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+      selection: selectorFn(new Node()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 
-      
-      person<Args extends VariabledInput<{
-        id?: string | null
-personID?: string | null,
-      }>,Sel extends Selection<Person>>(args: ExactArgNames<Args, {
-        id?: string | null
-personID?: string | null,
-      }>, selectorFn: (s: Person) => [...Sel]):$Field<"person", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-person<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"person", GetOutput<Sel> | null , GetVariables<Sel>>
-person(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  person<
+    Args extends VariabledInput<{
+      id?: string | null;
+      personID?: string | null;
+    }>,
+    Sel extends Selection<Person>,
+  >(
+    args: ExactArgNames<Args, {
+      id?: string | null;
+      personID?: string | null;
+    }>,
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"person", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  person<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"person", GetOutput<Sel> | null, GetVariables<Sel>>;
+  person(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              id: "ID",
-personID: "ID"
-            },
-        args,
+    const options = {
+      argTypes: {
+        id: "ID",
+        personID: "ID",
+      },
+      args,
 
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("person", options as any) as any
-    }
-  
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("person", options as any) as any;
+  }
 
-      
-      planet<Args extends VariabledInput<{
-        id?: string | null
-planetID?: string | null,
-      }>,Sel extends Selection<Planet>>(args: ExactArgNames<Args, {
-        id?: string | null
-planetID?: string | null,
-      }>, selectorFn: (s: Planet) => [...Sel]):$Field<"planet", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-planet<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"planet", GetOutput<Sel> | null , GetVariables<Sel>>
-planet(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  planet<
+    Args extends VariabledInput<{
+      id?: string | null;
+      planetID?: string | null;
+    }>,
+    Sel extends Selection<Planet>,
+  >(
+    args: ExactArgNames<Args, {
+      id?: string | null;
+      planetID?: string | null;
+    }>,
+    selectorFn: (s: Planet) => [...Sel],
+  ): $Field<"planet", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  planet<Sel extends Selection<Planet>>(
+    selectorFn: (s: Planet) => [...Sel],
+  ): $Field<"planet", GetOutput<Sel> | null, GetVariables<Sel>>;
+  planet(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              id: "ID",
-planetID: "ID"
-            },
-        args,
+    const options = {
+      argTypes: {
+        id: "ID",
+        planetID: "ID",
+      },
+      args,
 
-        selection: selectorFn(new Planet)
-      };
-      return this.$_select("planet", options as any) as any
-    }
-  
+      selection: selectorFn(new Planet()),
+    };
+    return this.$_select("planet", options as any) as any;
+  }
 
-      
-      species<Args extends VariabledInput<{
-        id?: string | null
-speciesID?: string | null,
-      }>,Sel extends Selection<Species>>(args: ExactArgNames<Args, {
-        id?: string | null
-speciesID?: string | null,
-      }>, selectorFn: (s: Species) => [...Sel]):$Field<"species", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", GetOutput<Sel> | null , GetVariables<Sel>>
-species(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  species<
+    Args extends VariabledInput<{
+      id?: string | null;
+      speciesID?: string | null;
+    }>,
+    Sel extends Selection<Species>,
+  >(
+    args: ExactArgNames<Args, {
+      id?: string | null;
+      speciesID?: string | null;
+    }>,
+    selectorFn: (s: Species) => [...Sel],
+  ): $Field<"species", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  species<Sel extends Selection<Species>>(
+    selectorFn: (s: Species) => [...Sel],
+  ): $Field<"species", GetOutput<Sel> | null, GetVariables<Sel>>;
+  species(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              id: "ID",
-speciesID: "ID"
-            },
-        args,
+    const options = {
+      argTypes: {
+        id: "ID",
+        speciesID: "ID",
+      },
+      args,
 
-        selection: selectorFn(new Species)
-      };
-      return this.$_select("species", options as any) as any
-    }
-  
+      selection: selectorFn(new Species()),
+    };
+    return this.$_select("species", options as any) as any;
+  }
 
-      
-      starship<Args extends VariabledInput<{
-        id?: string | null
-starshipID?: string | null,
-      }>,Sel extends Selection<Starship>>(args: ExactArgNames<Args, {
-        id?: string | null
-starshipID?: string | null,
-      }>, selectorFn: (s: Starship) => [...Sel]):$Field<"starship", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-starship<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starship", GetOutput<Sel> | null , GetVariables<Sel>>
-starship(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  starship<
+    Args extends VariabledInput<{
+      id?: string | null;
+      starshipID?: string | null;
+    }>,
+    Sel extends Selection<Starship>,
+  >(
+    args: ExactArgNames<Args, {
+      id?: string | null;
+      starshipID?: string | null;
+    }>,
+    selectorFn: (s: Starship) => [...Sel],
+  ): $Field<"starship", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  starship<Sel extends Selection<Starship>>(
+    selectorFn: (s: Starship) => [...Sel],
+  ): $Field<"starship", GetOutput<Sel> | null, GetVariables<Sel>>;
+  starship(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              id: "ID",
-starshipID: "ID"
-            },
-        args,
+    const options = {
+      argTypes: {
+        id: "ID",
+        starshipID: "ID",
+      },
+      args,
 
-        selection: selectorFn(new Starship)
-      };
-      return this.$_select("starship", options as any) as any
-    }
-  
+      selection: selectorFn(new Starship()),
+    };
+    return this.$_select("starship", options as any) as any;
+  }
 
-      
-      vehicle<Args extends VariabledInput<{
-        id?: string | null
-vehicleID?: string | null,
-      }>,Sel extends Selection<Vehicle>>(args: ExactArgNames<Args, {
-        id?: string | null
-vehicleID?: string | null,
-      }>, selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicle", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-vehicle<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicle", GetOutput<Sel> | null , GetVariables<Sel>>
-vehicle(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  vehicle<
+    Args extends VariabledInput<{
+      id?: string | null;
+      vehicleID?: string | null;
+    }>,
+    Sel extends Selection<Vehicle>,
+  >(
+    args: ExactArgNames<Args, {
+      id?: string | null;
+      vehicleID?: string | null;
+    }>,
+    selectorFn: (s: Vehicle) => [...Sel],
+  ): $Field<"vehicle", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  vehicle<Sel extends Selection<Vehicle>>(
+    selectorFn: (s: Vehicle) => [...Sel],
+  ): $Field<"vehicle", GetOutput<Sel> | null, GetVariables<Sel>>;
+  vehicle(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              id: "ID",
-vehicleID: "ID"
-            },
-        args,
+    const options = {
+      argTypes: {
+        id: "ID",
+        vehicleID: "ID",
+      },
+      args,
 
-        selection: selectorFn(new Vehicle)
-      };
-      return this.$_select("vehicle", options as any) as any
-    }
-  
+      selection: selectorFn(new Vehicle()),
+    };
+    return this.$_select("vehicle", options as any) as any;
+  }
 }
-
 
 /**
  * A type of person or character within the Star Wars Universe.
  */
 export class Species extends $Base<"Species"> {
   constructor() {
-    super("Species")
+    super("Species");
   }
 
-  
-      
-/**
- * The average height of this species in centimeters.
- */
-      get averageHeight(): $Field<"averageHeight", number | null>  {
-       return this.$_select("averageHeight") as any
-      }
+  /**
+   * The average height of this species in centimeters.
+   */
+  get averageHeight(): $Field<"averageHeight", number | null> {
+    return this.$_select("averageHeight") as any;
+  }
 
-      
-/**
- * The average lifespan of this species in years, null if unknown.
- */
-      get averageLifespan(): $Field<"averageLifespan", number | null>  {
-       return this.$_select("averageLifespan") as any
-      }
+  /**
+   * The average lifespan of this species in years, null if unknown.
+   */
+  get averageLifespan(): $Field<"averageLifespan", number | null> {
+    return this.$_select("averageLifespan") as any;
+  }
 
-      
-/**
- * The classification of this species, such as "mammal" or "reptile".
- */
-      get classification(): $Field<"classification", string | null>  {
-       return this.$_select("classification") as any
-      }
+  /**
+   * The classification of this species, such as "mammal" or "reptile".
+   */
+  get classification(): $Field<"classification", string | null> {
+    return this.$_select("classification") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was created.
- */
-      get created(): $Field<"created", string | null>  {
-       return this.$_select("created") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was created.
+   */
+  get created(): $Field<"created", string | null> {
+    return this.$_select("created") as any;
+  }
 
-      
-/**
- * The designation of this species, such as "sentient".
- */
-      get designation(): $Field<"designation", string | null>  {
-       return this.$_select("designation") as any
-      }
+  /**
+   * The designation of this species, such as "sentient".
+   */
+  get designation(): $Field<"designation", string | null> {
+    return this.$_select("designation") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was edited.
- */
-      get edited(): $Field<"edited", string | null>  {
-       return this.$_select("edited") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was edited.
+   */
+  get edited(): $Field<"edited", string | null> {
+    return this.$_select("edited") as any;
+  }
 
-      
-/**
+  /**
  * Common eye colors for this species, null if this species does not typically
 have eyes.
  */
-      get eyeColors(): $Field<"eyeColors", Readonly<Array<string | null>> | null>  {
-       return this.$_select("eyeColors") as any
-      }
+  get eyeColors(): $Field<"eyeColors", Readonly<Array<string | null>> | null> {
+    return this.$_select("eyeColors") as any;
+  }
 
-      
-      filmConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<SpeciesFilmsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: SpeciesFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<SpeciesFilmsConnection>>(selectorFn: (s: SpeciesFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-filmConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  filmConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<SpeciesFilmsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: SpeciesFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  filmConnection<Sel extends Selection<SpeciesFilmsConnection>>(
+    selectorFn: (s: SpeciesFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  filmConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new SpeciesFilmsConnection)
-      };
-      return this.$_select("filmConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new SpeciesFilmsConnection()),
+    };
+    return this.$_select("filmConnection", options as any) as any;
+  }
 
-      
-/**
+  /**
  * Common hair colors for this species, null if this species does not typically
 have hair.
  */
-      get hairColors(): $Field<"hairColors", Readonly<Array<string | null>> | null>  {
-       return this.$_select("hairColors") as any
-      }
+  get hairColors(): $Field<
+    "hairColors",
+    Readonly<Array<string | null>> | null
+  > {
+    return this.$_select("hairColors") as any;
+  }
 
-      
-/**
- * A planet that this species originates from.
- */
-      homeworld<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"homeworld", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A planet that this species originates from.
+   */
+  homeworld<Sel extends Selection<Planet>>(
+    selectorFn: (s: Planet) => [...Sel],
+  ): $Field<"homeworld", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Planet()),
+    };
+    return this.$_select("homeworld", options as any) as any;
+  }
 
-        selection: selectorFn(new Planet)
-      };
-      return this.$_select("homeworld", options as any) as any
-    }
-  
+  /**
+   * The ID of an object
+   */
+  get id(): $Field<"id", string> {
+    return this.$_select("id") as any;
+  }
 
-      
-/**
- * The ID of an object
- */
-      get id(): $Field<"id", string>  {
-       return this.$_select("id") as any
-      }
+  /**
+   * The language commonly spoken by this species.
+   */
+  get language(): $Field<"language", string | null> {
+    return this.$_select("language") as any;
+  }
 
-      
-/**
- * The language commonly spoken by this species.
- */
-      get language(): $Field<"language", string | null>  {
-       return this.$_select("language") as any
-      }
+  /**
+   * The name of this species.
+   */
+  get name(): $Field<"name", string | null> {
+    return this.$_select("name") as any;
+  }
 
-      
-/**
- * The name of this species.
- */
-      get name(): $Field<"name", string | null>  {
-       return this.$_select("name") as any
-      }
+  personConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<SpeciesPeopleConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: SpeciesPeopleConnection) => [...Sel],
+  ): $Field<"personConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  personConnection<Sel extends Selection<SpeciesPeopleConnection>>(
+    selectorFn: (s: SpeciesPeopleConnection) => [...Sel],
+  ): $Field<"personConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  personConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      
-      personConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<SpeciesPeopleConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: SpeciesPeopleConnection) => [...Sel]):$Field<"personConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-personConnection<Sel extends Selection<SpeciesPeopleConnection>>(selectorFn: (s: SpeciesPeopleConnection) => [...Sel]):$Field<"personConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-personConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+      selection: selectorFn(new SpeciesPeopleConnection()),
+    };
+    return this.$_select("personConnection", options as any) as any;
+  }
 
-        selection: selectorFn(new SpeciesPeopleConnection)
-      };
-      return this.$_select("personConnection", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * Common skin colors for this species, null if this species does not typically
 have skin.
  */
-      get skinColors(): $Field<"skinColors", Readonly<Array<string | null>> | null>  {
-       return this.$_select("skinColors") as any
-      }
+  get skinColors(): $Field<
+    "skinColors",
+    Readonly<Array<string | null>> | null
+  > {
+    return this.$_select("skinColors") as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class SpeciesConnection extends $Base<"SpeciesConnection"> {
   constructor() {
-    super("SpeciesConnection")
+    super("SpeciesConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<SpeciesEdge>>(selectorFn: (s: SpeciesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<SpeciesEdge>>(
+    selectorFn: (s: SpeciesEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new SpeciesEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new SpeciesEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -3154,93 +3102,75 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  species<Sel extends Selection<Species>>(
+    selectorFn: (s: Species) => [...Sel],
+  ): $Field<"species", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Species()),
+    };
+    return this.$_select("species", options as any) as any;
+  }
 
-        selection: selectorFn(new Species)
-      };
-      return this.$_select("species", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class SpeciesEdge extends $Base<"SpeciesEdge"> {
   constructor() {
-    super("SpeciesEdge")
+    super("SpeciesEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Species)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Species>>(
+    selectorFn: (s: Species) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Species()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class SpeciesFilmsConnection extends $Base<"SpeciesFilmsConnection"> {
   constructor() {
-    super("SpeciesFilmsConnection")
+    super("SpeciesFilmsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<SpeciesFilmsEdge>>(selectorFn: (s: SpeciesFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<SpeciesFilmsEdge>>(
+    selectorFn: (s: SpeciesFilmsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new SpeciesFilmsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new SpeciesFilmsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -3248,125 +3178,99 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  films<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"films", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("films", options as any) as any;
+  }
 
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("films", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class SpeciesFilmsEdge extends $Base<"SpeciesFilmsEdge"> {
   constructor() {
-    super("SpeciesFilmsEdge")
+    super("SpeciesFilmsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class SpeciesPeopleConnection extends $Base<"SpeciesPeopleConnection"> {
   constructor() {
-    super("SpeciesPeopleConnection")
+    super("SpeciesPeopleConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<SpeciesPeopleEdge>>(selectorFn: (s: SpeciesPeopleEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<SpeciesPeopleEdge>>(
+    selectorFn: (s: SpeciesPeopleEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new SpeciesPeopleEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new SpeciesPeopleEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -3374,302 +3278,285 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      people<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"people", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  people<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"people", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("people", options as any) as any;
+  }
 
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("people", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class SpeciesPeopleEdge extends $Base<"SpeciesPeopleEdge"> {
   constructor() {
-    super("SpeciesPeopleEdge")
+    super("SpeciesPeopleEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A single transport craft that has hyperdrive capability.
  */
 export class Starship extends $Base<"Starship"> {
   constructor() {
-    super("Starship")
+    super("Starship");
   }
 
-  
-      
-/**
+  /**
  * The Maximum number of Megalights this starship can travel in a standard hour.
 A "Megalight" is a standard unit of distance and has never been defined before
 within the Star Wars universe. This figure is only really useful for measuring
 the difference in speed of starships. We can assume it is similar to AU, the
 distance between our Sun (Sol) and Earth.
  */
-      get MGLT(): $Field<"MGLT", number | null>  {
-       return this.$_select("MGLT") as any
-      }
+  get MGLT(): $Field<"MGLT", number | null> {
+    return this.$_select("MGLT") as any;
+  }
 
-      
-/**
- * The maximum number of kilograms that this starship can transport.
- */
-      get cargoCapacity(): $Field<"cargoCapacity", number | null>  {
-       return this.$_select("cargoCapacity") as any
-      }
+  /**
+   * The maximum number of kilograms that this starship can transport.
+   */
+  get cargoCapacity(): $Field<"cargoCapacity", number | null> {
+    return this.$_select("cargoCapacity") as any;
+  }
 
-      
-/**
+  /**
  * The maximum length of time that this starship can provide consumables for its
 entire crew without having to resupply.
  */
-      get consumables(): $Field<"consumables", string | null>  {
-       return this.$_select("consumables") as any
-      }
+  get consumables(): $Field<"consumables", string | null> {
+    return this.$_select("consumables") as any;
+  }
 
-      
-/**
- * The cost of this starship new, in galactic credits.
- */
-      get costInCredits(): $Field<"costInCredits", number | null>  {
-       return this.$_select("costInCredits") as any
-      }
+  /**
+   * The cost of this starship new, in galactic credits.
+   */
+  get costInCredits(): $Field<"costInCredits", number | null> {
+    return this.$_select("costInCredits") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was created.
- */
-      get created(): $Field<"created", string | null>  {
-       return this.$_select("created") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was created.
+   */
+  get created(): $Field<"created", string | null> {
+    return this.$_select("created") as any;
+  }
 
-      
-/**
- * The number of personnel needed to run or pilot this starship.
- */
-      get crew(): $Field<"crew", string | null>  {
-       return this.$_select("crew") as any
-      }
+  /**
+   * The number of personnel needed to run or pilot this starship.
+   */
+  get crew(): $Field<"crew", string | null> {
+    return this.$_select("crew") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was edited.
- */
-      get edited(): $Field<"edited", string | null>  {
-       return this.$_select("edited") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was edited.
+   */
+  get edited(): $Field<"edited", string | null> {
+    return this.$_select("edited") as any;
+  }
 
-      
-      filmConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<StarshipFilmsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: StarshipFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<StarshipFilmsConnection>>(selectorFn: (s: StarshipFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-filmConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  filmConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<StarshipFilmsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: StarshipFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  filmConnection<Sel extends Selection<StarshipFilmsConnection>>(
+    selectorFn: (s: StarshipFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  filmConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new StarshipFilmsConnection)
-      };
-      return this.$_select("filmConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new StarshipFilmsConnection()),
+    };
+    return this.$_select("filmConnection", options as any) as any;
+  }
 
-      
-/**
- * The class of this starships hyperdrive.
- */
-      get hyperdriveRating(): $Field<"hyperdriveRating", number | null>  {
-       return this.$_select("hyperdriveRating") as any
-      }
+  /**
+   * The class of this starships hyperdrive.
+   */
+  get hyperdriveRating(): $Field<"hyperdriveRating", number | null> {
+    return this.$_select("hyperdriveRating") as any;
+  }
 
-      
-/**
- * The ID of an object
- */
-      get id(): $Field<"id", string>  {
-       return this.$_select("id") as any
-      }
+  /**
+   * The ID of an object
+   */
+  get id(): $Field<"id", string> {
+    return this.$_select("id") as any;
+  }
 
-      
-/**
- * The length of this starship in meters.
- */
-      get length(): $Field<"length", number | null>  {
-       return this.$_select("length") as any
-      }
+  /**
+   * The length of this starship in meters.
+   */
+  get length(): $Field<"length", number | null> {
+    return this.$_select("length") as any;
+  }
 
-      
-/**
- * The manufacturers of this starship.
- */
-      get manufacturers(): $Field<"manufacturers", Readonly<Array<string | null>> | null>  {
-       return this.$_select("manufacturers") as any
-      }
+  /**
+   * The manufacturers of this starship.
+   */
+  get manufacturers(): $Field<
+    "manufacturers",
+    Readonly<Array<string | null>> | null
+  > {
+    return this.$_select("manufacturers") as any;
+  }
 
-      
-/**
+  /**
  * The maximum speed of this starship in atmosphere. null if this starship is
 incapable of atmosphering flight.
  */
-      get maxAtmospheringSpeed(): $Field<"maxAtmospheringSpeed", number | null>  {
-       return this.$_select("maxAtmospheringSpeed") as any
-      }
+  get maxAtmospheringSpeed(): $Field<"maxAtmospheringSpeed", number | null> {
+    return this.$_select("maxAtmospheringSpeed") as any;
+  }
 
-      
-/**
+  /**
  * The model or official name of this starship. Such as "T-65 X-wing" or "DS-1
 Orbital Battle Station".
  */
-      get model(): $Field<"model", string | null>  {
-       return this.$_select("model") as any
-      }
+  get model(): $Field<"model", string | null> {
+    return this.$_select("model") as any;
+  }
 
-      
-/**
- * The name of this starship. The common name, such as "Death Star".
- */
-      get name(): $Field<"name", string | null>  {
-       return this.$_select("name") as any
-      }
+  /**
+   * The name of this starship. The common name, such as "Death Star".
+   */
+  get name(): $Field<"name", string | null> {
+    return this.$_select("name") as any;
+  }
 
-      
-/**
- * The number of non-essential people this starship can transport.
- */
-      get passengers(): $Field<"passengers", string | null>  {
-       return this.$_select("passengers") as any
-      }
+  /**
+   * The number of non-essential people this starship can transport.
+   */
+  get passengers(): $Field<"passengers", string | null> {
+    return this.$_select("passengers") as any;
+  }
 
-      
-      pilotConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<StarshipPilotsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: StarshipPilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-pilotConnection<Sel extends Selection<StarshipPilotsConnection>>(selectorFn: (s: StarshipPilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-pilotConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  pilotConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<StarshipPilotsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: StarshipPilotsConnection) => [...Sel],
+  ): $Field<"pilotConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  pilotConnection<Sel extends Selection<StarshipPilotsConnection>>(
+    selectorFn: (s: StarshipPilotsConnection) => [...Sel],
+  ): $Field<"pilotConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  pilotConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new StarshipPilotsConnection)
-      };
-      return this.$_select("pilotConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new StarshipPilotsConnection()),
+    };
+    return this.$_select("pilotConnection", options as any) as any;
+  }
 
-      
-/**
+  /**
  * The class of this starship, such as "Starfighter" or "Deep Space Mobile
 Battlestation"
  */
-      get starshipClass(): $Field<"starshipClass", string | null>  {
-       return this.$_select("starshipClass") as any
-      }
+  get starshipClass(): $Field<"starshipClass", string | null> {
+    return this.$_select("starshipClass") as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class StarshipFilmsConnection extends $Base<"StarshipFilmsConnection"> {
   constructor() {
-    super("StarshipFilmsConnection")
+    super("StarshipFilmsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<StarshipFilmsEdge>>(selectorFn: (s: StarshipFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<StarshipFilmsEdge>>(
+    selectorFn: (s: StarshipFilmsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new StarshipFilmsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new StarshipFilmsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -3677,125 +3564,100 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  films<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"films", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("films", options as any) as any;
+  }
 
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("films", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class StarshipFilmsEdge extends $Base<"StarshipFilmsEdge"> {
   constructor() {
-    super("StarshipFilmsEdge")
+    super("StarshipFilmsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
-export class StarshipPilotsConnection extends $Base<"StarshipPilotsConnection"> {
+export class StarshipPilotsConnection
+  extends $Base<"StarshipPilotsConnection"> {
   constructor() {
-    super("StarshipPilotsConnection")
+    super("StarshipPilotsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<StarshipPilotsEdge>>(selectorFn: (s: StarshipPilotsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<StarshipPilotsEdge>>(
+    selectorFn: (s: StarshipPilotsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new StarshipPilotsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new StarshipPilotsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -3803,109 +3665,87 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      pilots<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"pilots", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  pilots<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"pilots", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("pilots", options as any) as any;
+  }
 
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("pilots", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class StarshipPilotsEdge extends $Base<"StarshipPilotsEdge"> {
   constructor() {
-    super("StarshipPilotsEdge")
+    super("StarshipPilotsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class StarshipsConnection extends $Base<"StarshipsConnection"> {
   constructor() {
-    super("StarshipsConnection")
+    super("StarshipsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<StarshipsEdge>>(selectorFn: (s: StarshipsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<StarshipsEdge>>(
+    selectorFn: (s: StarshipsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new StarshipsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new StarshipsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -3913,281 +3753,270 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      starships<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starships", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  starships<Sel extends Selection<Starship>>(
+    selectorFn: (s: Starship) => [...Sel],
+  ): $Field<
+    "starships",
+    Array<GetOutput<Sel> | null> | null,
+    GetVariables<Sel>
+  > {
+    const options = {
+      selection: selectorFn(new Starship()),
+    };
+    return this.$_select("starships", options as any) as any;
+  }
 
-        selection: selectorFn(new Starship)
-      };
-      return this.$_select("starships", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class StarshipsEdge extends $Base<"StarshipsEdge"> {
   constructor() {
-    super("StarshipsEdge")
+    super("StarshipsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Starship)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Starship>>(
+    selectorFn: (s: Starship) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Starship()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A single transport craft that does not have hyperdrive capability
  */
 export class Vehicle extends $Base<"Vehicle"> {
   constructor() {
-    super("Vehicle")
+    super("Vehicle");
   }
 
-  
-      
-/**
- * The maximum number of kilograms that this vehicle can transport.
- */
-      get cargoCapacity(): $Field<"cargoCapacity", number | null>  {
-       return this.$_select("cargoCapacity") as any
-      }
+  /**
+   * The maximum number of kilograms that this vehicle can transport.
+   */
+  get cargoCapacity(): $Field<"cargoCapacity", number | null> {
+    return this.$_select("cargoCapacity") as any;
+  }
 
-      
-/**
+  /**
  * The maximum length of time that this vehicle can provide consumables for its
 entire crew without having to resupply.
  */
-      get consumables(): $Field<"consumables", string | null>  {
-       return this.$_select("consumables") as any
-      }
+  get consumables(): $Field<"consumables", string | null> {
+    return this.$_select("consumables") as any;
+  }
 
-      
-/**
- * The cost of this vehicle new, in Galactic Credits.
- */
-      get costInCredits(): $Field<"costInCredits", number | null>  {
-       return this.$_select("costInCredits") as any
-      }
+  /**
+   * The cost of this vehicle new, in Galactic Credits.
+   */
+  get costInCredits(): $Field<"costInCredits", number | null> {
+    return this.$_select("costInCredits") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was created.
- */
-      get created(): $Field<"created", string | null>  {
-       return this.$_select("created") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was created.
+   */
+  get created(): $Field<"created", string | null> {
+    return this.$_select("created") as any;
+  }
 
-      
-/**
- * The number of personnel needed to run or pilot this vehicle.
- */
-      get crew(): $Field<"crew", string | null>  {
-       return this.$_select("crew") as any
-      }
+  /**
+   * The number of personnel needed to run or pilot this vehicle.
+   */
+  get crew(): $Field<"crew", string | null> {
+    return this.$_select("crew") as any;
+  }
 
-      
-/**
- * The ISO 8601 date format of the time that this resource was edited.
- */
-      get edited(): $Field<"edited", string | null>  {
-       return this.$_select("edited") as any
-      }
+  /**
+   * The ISO 8601 date format of the time that this resource was edited.
+   */
+  get edited(): $Field<"edited", string | null> {
+    return this.$_select("edited") as any;
+  }
 
-      
-      filmConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<VehicleFilmsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: VehicleFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<VehicleFilmsConnection>>(selectorFn: (s: VehicleFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-filmConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  filmConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<VehicleFilmsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: VehicleFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  filmConnection<Sel extends Selection<VehicleFilmsConnection>>(
+    selectorFn: (s: VehicleFilmsConnection) => [...Sel],
+  ): $Field<"filmConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  filmConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new VehicleFilmsConnection)
-      };
-      return this.$_select("filmConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new VehicleFilmsConnection()),
+    };
+    return this.$_select("filmConnection", options as any) as any;
+  }
 
-      
-/**
- * The ID of an object
- */
-      get id(): $Field<"id", string>  {
-       return this.$_select("id") as any
-      }
+  /**
+   * The ID of an object
+   */
+  get id(): $Field<"id", string> {
+    return this.$_select("id") as any;
+  }
 
-      
-/**
- * The length of this vehicle in meters.
- */
-      get length(): $Field<"length", number | null>  {
-       return this.$_select("length") as any
-      }
+  /**
+   * The length of this vehicle in meters.
+   */
+  get length(): $Field<"length", number | null> {
+    return this.$_select("length") as any;
+  }
 
-      
-/**
- * The manufacturers of this vehicle.
- */
-      get manufacturers(): $Field<"manufacturers", Readonly<Array<string | null>> | null>  {
-       return this.$_select("manufacturers") as any
-      }
+  /**
+   * The manufacturers of this vehicle.
+   */
+  get manufacturers(): $Field<
+    "manufacturers",
+    Readonly<Array<string | null>> | null
+  > {
+    return this.$_select("manufacturers") as any;
+  }
 
-      
-/**
- * The maximum speed of this vehicle in atmosphere.
- */
-      get maxAtmospheringSpeed(): $Field<"maxAtmospheringSpeed", number | null>  {
-       return this.$_select("maxAtmospheringSpeed") as any
-      }
+  /**
+   * The maximum speed of this vehicle in atmosphere.
+   */
+  get maxAtmospheringSpeed(): $Field<"maxAtmospheringSpeed", number | null> {
+    return this.$_select("maxAtmospheringSpeed") as any;
+  }
 
-      
-/**
+  /**
  * The model or official name of this vehicle. Such as "All-Terrain Attack
 Transport".
  */
-      get model(): $Field<"model", string | null>  {
-       return this.$_select("model") as any
-      }
+  get model(): $Field<"model", string | null> {
+    return this.$_select("model") as any;
+  }
 
-      
-/**
+  /**
  * The name of this vehicle. The common name, such as "Sand Crawler" or "Speeder
 bike".
  */
-      get name(): $Field<"name", string | null>  {
-       return this.$_select("name") as any
-      }
+  get name(): $Field<"name", string | null> {
+    return this.$_select("name") as any;
+  }
 
-      
-/**
- * The number of non-essential people this vehicle can transport.
- */
-      get passengers(): $Field<"passengers", string | null>  {
-       return this.$_select("passengers") as any
-      }
+  /**
+   * The number of non-essential people this vehicle can transport.
+   */
+  get passengers(): $Field<"passengers", string | null> {
+    return this.$_select("passengers") as any;
+  }
 
-      
-      pilotConnection<Args extends VariabledInput<{
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>,Sel extends Selection<VehiclePilotsConnection>>(args: ExactArgNames<Args, {
-        after?: string | null
-first?: number | null
-before?: string | null
-last?: number | null,
-      }>, selectorFn: (s: VehiclePilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
-pilotConnection<Sel extends Selection<VehiclePilotsConnection>>(selectorFn: (s: VehiclePilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | null , GetVariables<Sel>>
-pilotConnection(arg1: any, arg2?: any) {
-      const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
+  pilotConnection<
+    Args extends VariabledInput<{
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    Sel extends Selection<VehiclePilotsConnection>,
+  >(
+    args: ExactArgNames<Args, {
+      after?: string | null;
+      first?: number | null;
+      before?: string | null;
+      last?: number | null;
+    }>,
+    selectorFn: (s: VehiclePilotsConnection) => [...Sel],
+  ): $Field<"pilotConnection", GetOutput<Sel> | null, GetVariables<Sel, Args>>;
+  pilotConnection<Sel extends Selection<VehiclePilotsConnection>>(
+    selectorFn: (s: VehiclePilotsConnection) => [...Sel],
+  ): $Field<"pilotConnection", GetOutput<Sel> | null, GetVariables<Sel>>;
+  pilotConnection(arg1: any, arg2?: any) {
+    const { args, selectorFn } = !arg2
+      ? { args: {}, selectorFn: arg1 }
+      : { args: arg1, selectorFn: arg2 };
 
-      const options = {
-        argTypes: {
-              after: "String",
-first: "Int",
-before: "String",
-last: "Int"
-            },
-        args,
+    const options = {
+      argTypes: {
+        after: "String",
+        first: "Int",
+        before: "String",
+        last: "Int",
+      },
+      args,
 
-        selection: selectorFn(new VehiclePilotsConnection)
-      };
-      return this.$_select("pilotConnection", options as any) as any
-    }
-  
+      selection: selectorFn(new VehiclePilotsConnection()),
+    };
+    return this.$_select("pilotConnection", options as any) as any;
+  }
 
-      
-/**
- * The class of this vehicle, such as "Wheeled" or "Repulsorcraft".
- */
-      get vehicleClass(): $Field<"vehicleClass", string | null>  {
-       return this.$_select("vehicleClass") as any
-      }
+  /**
+   * The class of this vehicle, such as "Wheeled" or "Repulsorcraft".
+   */
+  get vehicleClass(): $Field<"vehicleClass", string | null> {
+    return this.$_select("vehicleClass") as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class VehicleFilmsConnection extends $Base<"VehicleFilmsConnection"> {
   constructor() {
-    super("VehicleFilmsConnection")
+    super("VehicleFilmsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<VehicleFilmsEdge>>(selectorFn: (s: VehicleFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<VehicleFilmsEdge>>(
+    selectorFn: (s: VehicleFilmsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new VehicleFilmsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new VehicleFilmsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -4195,125 +4024,99 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  films<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"films", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("films", options as any) as any;
+  }
 
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("films", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class VehicleFilmsEdge extends $Base<"VehicleFilmsEdge"> {
   constructor() {
-    super("VehicleFilmsEdge")
+    super("VehicleFilmsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Film)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Film>>(
+    selectorFn: (s: Film) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Film()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class VehiclePilotsConnection extends $Base<"VehiclePilotsConnection"> {
   constructor() {
-    super("VehiclePilotsConnection")
+    super("VehiclePilotsConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<VehiclePilotsEdge>>(selectorFn: (s: VehiclePilotsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<VehiclePilotsEdge>>(
+    selectorFn: (s: VehiclePilotsEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new VehiclePilotsEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new VehiclePilotsEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -4321,120 +4124,97 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      pilots<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"pilots", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  pilots<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"pilots", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("pilots", options as any) as any;
+  }
 
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("pilots", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class VehiclePilotsEdge extends $Base<"VehiclePilotsEdge"> {
   constructor() {
-    super("VehiclePilotsEdge")
+    super("VehiclePilotsEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Person)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Person>>(
+    selectorFn: (s: Person) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Person()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
-
 
 /**
  * A connection to a list of items.
  */
 export class VehiclesConnection extends $Base<"VehiclesConnection"> {
   constructor() {
-    super("VehiclesConnection")
+    super("VehiclesConnection");
   }
 
-  
-      
-/**
- * A list of edges.
- */
-      edges<Sel extends Selection<VehiclesEdge>>(selectorFn: (s: VehiclesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
+  /**
+   * A list of edges.
+   */
+  edges<Sel extends Selection<VehiclesEdge>>(
+    selectorFn: (s: VehiclesEdge) => [...Sel],
+  ): $Field<"edges", Array<GetOutput<Sel> | null> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new VehiclesEdge()),
+    };
+    return this.$_select("edges", options as any) as any;
+  }
 
-        selection: selectorFn(new VehiclesEdge)
-      };
-      return this.$_select("edges", options as any) as any
-    }
-  
+  /**
+   * Information to aid in pagination.
+   */
+  pageInfo<Sel extends Selection<PageInfo>>(
+    selectorFn: (s: PageInfo) => [...Sel],
+  ): $Field<"pageInfo", GetOutput<Sel>, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new PageInfo()),
+    };
+    return this.$_select("pageInfo", options as any) as any;
+  }
 
-      
-/**
- * Information to aid in pagination.
- */
-      pageInfo<Sel extends Selection<PageInfo>>(selectorFn: (s: PageInfo) => [...Sel]):$Field<"pageInfo", GetOutput<Sel> , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new PageInfo)
-      };
-      return this.$_select("pageInfo", options as any) as any
-    }
-  
-
-      
-/**
+  /**
  * A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null>  {
-       return this.$_select("totalCount") as any
-      }
+  get totalCount(): $Field<"totalCount", number | null> {
+    return this.$_select("totalCount") as any;
+  }
 
-      
-/**
+  /**
  * A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -4442,103 +4222,95 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      vehicles<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicles", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Vehicle)
-      };
-      return this.$_select("vehicles", options as any) as any
-    }
-  
+  vehicles<Sel extends Selection<Vehicle>>(
+    selectorFn: (s: Vehicle) => [...Sel],
+  ): $Field<
+    "vehicles",
+    Array<GetOutput<Sel> | null> | null,
+    GetVariables<Sel>
+  > {
+    const options = {
+      selection: selectorFn(new Vehicle()),
+    };
+    return this.$_select("vehicles", options as any) as any;
+  }
 }
-
 
 /**
  * An edge in a connection.
  */
 export class VehiclesEdge extends $Base<"VehiclesEdge"> {
   constructor() {
-    super("VehiclesEdge")
+    super("VehiclesEdge");
   }
 
-  
-      
-/**
- * A cursor for use in pagination
- */
-      get cursor(): $Field<"cursor", string>  {
-       return this.$_select("cursor") as any
-      }
+  /**
+   * A cursor for use in pagination
+   */
+  get cursor(): $Field<"cursor", string> {
+    return this.$_select("cursor") as any;
+  }
 
-      
-/**
- * The item at the end of the edge
- */
-      node<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
-      
-      const options = {
-        
-        
-
-        selection: selectorFn(new Vehicle)
-      };
-      return this.$_select("node", options as any) as any
-    }
-  
+  /**
+   * The item at the end of the edge
+   */
+  node<Sel extends Selection<Vehicle>>(
+    selectorFn: (s: Vehicle) => [...Sel],
+  ): $Field<"node", GetOutput<Sel> | null, GetVariables<Sel>> {
+    const options = {
+      selection: selectorFn(new Vehicle()),
+    };
+    return this.$_select("node", options as any) as any;
+  }
 }
 
-  const $Root = {
-    query: Root
-  }
+const $Root = {
+  query: Root,
+};
 
-  namespace $RootTypes {
-    export type query = Root
-  }
-  
+namespace $RootTypes {
+  export type query = Root;
+}
 
 export function query<Sel extends Selection<$RootTypes.query>>(
   name: string,
-  selectFn: (q: $RootTypes.query) => [...Sel]
-): TypedDocumentNode<GetOutput<Sel>, GetVariables<Sel>>
+  selectFn: (q: $RootTypes.query) => [...Sel],
+): TypedDocumentNode<GetOutput<Sel>, GetVariables<Sel>>;
 export function query<Sel extends Selection<$RootTypes.query>>(
-  selectFn: (q: $RootTypes.query) => [...Sel]
-): TypedDocumentNode<GetOutput<Sel>, Simplify<GetVariables<Sel>>>
-export function query<Sel extends Selection<$RootTypes.query>>(name: any, selectFn?: any) {
+  selectFn: (q: $RootTypes.query) => [...Sel],
+): TypedDocumentNode<GetOutput<Sel>, Simplify<GetVariables<Sel>>>;
+export function query<Sel extends Selection<$RootTypes.query>>(
+  name: any,
+  selectFn?: any,
+) {
   if (!selectFn) {
-    selectFn = name
-    name = ''
+    selectFn = name;
+    name = "";
   }
-  let field = new $Field<'query', GetOutput<Sel>, GetVariables<Sel>>('query', {
+  let field = new $Field<"query", GetOutput<Sel>, GetVariables<Sel>>("query", {
     selection: selectFn(new $Root.query()),
-  })
-  const str = fieldToQuery(`query ${name}`, field)
+  });
+  const str = fieldToQuery(`query ${name}`, field);
 
-  return gql(str) as any
+  return gql(str) as any;
 }
 
-
-const $InputTypes: {[key: string]: {[key: string]: string}} = {
-  
-}
+const $InputTypes: { [key: string]: { [key: string]: string } } = {};
 
 // We use a dummy conditional type that involves GenericType to defer the compiler's inference of
 // any possible variables nested in this type. This addresses a problem where variables are
 // inferred with type unknown
-type ExactArgNames<GenericType, Constraint> = GenericType extends never
-  ? never
-  : GenericType extends Variable<any, any, any>
-  ? GenericType
-  : [Constraint] extends [$Atomic | CustomScalar<any>]
-  ? GenericType
+type ExactArgNames<GenericType, Constraint> = GenericType extends never ? never
+  : GenericType extends Variable<any, any, any> ? GenericType
+  : [Constraint] extends [$Atomic | CustomScalar<any>] ? GenericType
   : Constraint extends ReadonlyArray<infer InnerConstraint>
-  ? GenericType extends ReadonlyArray<infer Inner>
-    ? ReadonlyArray<ExactArgNames<Inner, InnerConstraint>>
+    ? GenericType extends ReadonlyArray<infer Inner>
+      ? ReadonlyArray<ExactArgNames<Inner, InnerConstraint>>
     : GenericType
-  : GenericType & {
+  :
+    & GenericType
+    & {
       [Key in keyof GenericType]: Key extends keyof Constraint
         ? ExactArgNames<GenericType[Key], Constraint[Key]>
-        : never
-    }
+        : never;
+    };
