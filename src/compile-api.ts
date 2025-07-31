@@ -16,16 +16,17 @@ export async function compile(args: Args) {
     scalars,
     includeTypename: args.includeTypename,
   })
-
   if (args.output === '') {
     console.log(outputScript)
   } else {
-    await Deno.writeTextFile(args.output, outputScript)
+    const outputFileName = args.output.endsWith('.ts') ? args.output : `${args.output}.ts`;
+
+    await Deno.writeTextFile(outputFileName, outputScript)
     
     // Format the output file with deno fmt
     try {
-      const formatProcess = new Deno.Command(Deno.execPath(), {
-        args: ["fmt", args.output],
+      const formatProcess = new Deno.Command("deno", {
+        args: ["fmt", outputFileName],
         stdout: "piped",
         stderr: "piped",
       })

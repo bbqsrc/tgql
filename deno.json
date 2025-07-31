@@ -10,7 +10,7 @@
     "./cli": "./src/cli.ts"
   },
   "tasks": {
-    "build": "deno compile --allow-env --unstable-raw-imports --output dist/tgql src/cli.ts",
+    "build": "deno compile --allow-env --allow-read --allow-write --allow-run --unstable-raw-imports --output dist/tgql src/cli.ts",
     "test": "deno test --parallel --unstable-raw-imports --allow-read --allow-net --allow-env --allow-write --allow-run --coverage",
     "test:watch": "deno test --unstable-raw-imports --allow-read --allow-net --allow-env --allow-write --allow-run --watch",
     "regenerate": "deno task regenerate:big-schema && deno task regenerate:small-schema && deno task regenerate:sw-schema && deno task regenerate:country-schema",
