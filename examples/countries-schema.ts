@@ -8,6 +8,10 @@ import { gql } from 'graphql-tag'
 
 const VariableName = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd8'
 
+const ScalarBrandingField = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd9'
+
+type CustomScalar<T> = { [ScalarBrandingField]: T }
+
 class Variable<T, Name extends string> {
   private [VariableName]: Name
   // @ts-ignore
@@ -19,18 +23,40 @@ class Variable<T, Name extends string> {
   }
 }
 
-type ArrayInput<I> = [I] extends [$Atomic | null | undefined]
-  ? never
-  : ReadonlyArray<VariabledInput<I>>
+type ArrayInput<I> = [I] extends [$Atomic] ? never : ReadonlyArray<VariabledInput<I>>
+
+type AllowedInlineScalars<S> = S extends string | number ? S : never
+
+export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S>
+  ? S
+  : T extends ReadonlyArray<infer I>
+  ? ReadonlyArray<UnwrapCustomScalars<I>>
+  : T extends Record<string, any>
+  ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
+  : T
+
+type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str>
 
 // the array wrapper prevents distributive conditional types
 // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
-type VariabledInput<T> = [T] extends [$Atomic | null | undefined]
+type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
+  ? // scalars only support variable input
+    Variable<S | null | undefined, any> | AllowedInlineScalars<S> | null | undefined
+  : [T] extends [CustomScalar<infer S>]
+  ? Variable<S, any> | AllowedInlineScalars<S>
+  : [T] extends [$Atomic]
   ? Variable<T, any> | T
   : T extends ReadonlyArray<infer I>
-  ? Variable<T, any> | T | ArrayInput<I>
+  ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
+  : T extends Record<string, any> | null | undefined
+  ?
+      | VariableWithoutScalars<T | null | undefined, any>
+      | null
+      | undefined
+      | { [K in keyof T]: VariabledInput<T[K]> }
+      | T
   : T extends Record<string, any>
-  ? Variable<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
+  ? VariableWithoutScalars<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
   : never
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
@@ -143,27 +169,36 @@ type NeverNever<T> = [T] extends [never] ? {} : T
 
 type Simplify<T> = { [K in keyof T]: T[K] } & {}
 
+type LeafType<T> = T extends CustomScalar<infer S> ? S : T
+
 export type GetOutput<X extends Selection<any>> = Simplify<
   UnionToIntersection<
     {
       [I in keyof X]: X[I] extends $Field<infer Name, infer Type, any>
-        ? { [K in Name]: Type }
+        ? { [K in Name]: LeafType<Type> }
         : never
     }[keyof X & number]
   > &
     NeverNever<
       {
-        [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? Type : never
+        [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type> : never
       }[keyof X & number]
     >
 >
 
-type PossiblyOptionalVar<VName extends string, VType> = undefined extends VType
+type PossiblyOptionalVar<VName extends string, VType> = null extends VType
   ? { [key in VName]?: VType }
   : { [key in VName]: VType }
 
 type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer VName>
   ? PossiblyOptionalVar<VName, VType>
+  : // Avoid generating an index signature for possibly undefined or null inputs.
+  // The compiler incorrectly infers null or undefined, and we must force access the Inputs
+  // type to convince the compiler its "never", while still retaining {} as the result
+  // for null and undefined cases
+  // Works around issue 79
+  Inputs extends null | undefined
+  ? { [K in keyof Inputs]: Inputs[K] }
   : Inputs extends $Atomic
   ? {}
   : Inputs extends any[] | readonly any[]
@@ -224,17 +259,19 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
     argVarType?: ArgVarType
   ): string {
     switch (typeof args) {
-      case 'string':
+      case 'string': {
         const cleanType = argVarType!.type
         if ($Enums.has(cleanType!)) return args
         else return JSON.stringify(args)
+      }
       case 'number':
       case 'boolean':
         return JSON.stringify(args)
-      default:
+      default: {
         if (args == null) return 'null'
         if (VariableName in (args as any)) {
-          if (!argVarType) throw new Error('Cannot use variabe as sole unnamed field argument')
+          if (!argVarType)
+            throw new globalThis.Error('Cannot use variabe as sole unnamed field argument')
           const variable = args as Variable<any, any>
           const argVarName = variable[VariableName]
           variables.set(argVarName, { type: argVarType, variable: variable })
@@ -248,7 +285,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
             .map(([key, val]) => {
               let argTypeForKey = argTypes[key]
               if (!argTypeForKey) {
-                throw new Error(`Argument type for ${key} not found`)
+                throw new globalThis.Error(`Argument type for ${key} not found`)
               }
               const cleanType = argTypeForKey.replace('[', '').replace(']', '').replace(/!/g, '')
               return (
@@ -259,6 +296,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
             })
             .join(',')
         )
+      }
     }
   }
 
@@ -289,7 +327,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
 
       return retVal + ' '
     } else {
-      throw new Error('Uknown field kind')
+      throw new globalThis.Error('Uknown field kind')
     }
   }
 
@@ -323,7 +361,11 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
   return ret
 }
 
-export type OutputTypeOf<T> = T extends $Base<any>
+export type OutputTypeOf<T> = T extends $Interface<infer Subtypes, any>
+  ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
+  : T extends $Union<infer Subtypes, any>
+  ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
+  : T extends $Base<any>
   ? { [K in keyof T]?: OutputTypeOf<T[K]> }
   : [T] extends [$Field<any, infer FieldType, any>]
   ? FieldType
@@ -353,7 +395,54 @@ export function fragment<T, Sel extends Selection<T>>(
   return selectFn(new GQLType())
 }
 
-type $Atomic = string | number | boolean
+type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends () => infer R
+  ? R
+  : never
+
+// TS4.0+
+type Push<T extends any[], V> = [...T, V]
+
+// TS4.1+
+type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = true extends N
+  ? []
+  : Push<TuplifyUnion<Exclude<T, L>>, L>
+
+type AllFieldProperties<I> = {
+  [K in keyof I]: I[K] extends $Field<infer Name, infer Type, any> ? $Field<Name, Type, any> : never
+}
+
+type ValueOf<T> = T[keyof T]
+
+export type AllFields<T> = TuplifyUnion<ValueOf<AllFieldProperties<T>>>
+
+export function all<I extends $Base<any>>(instance: I) {
+  const prototype = Object.getPrototypeOf(instance)
+  const allFields = Object.getOwnPropertyNames(prototype)
+    .map(k => prototype[k])
+    .filter(o => o?.kind === 'field')
+    .map(o => o?.name) as (keyof typeof instance)[]
+  return allFields.map(fieldName => instance?.[fieldName]) as any as AllFields<I>
+}
+
+// We use a dummy conditional type that involves GenericType to defer the compiler's inference of
+// any possible variables nested in this type. This addresses a problem where variables are
+// inferred with type unknown
+// @ts-ignore
+type ExactArgNames<GenericType, Constraint> = GenericType extends never
+  ? never
+  : [Constraint] extends [$Atomic | CustomScalar<any>]
+  ? GenericType
+  : Constraint extends ReadonlyArray<infer InnerConstraint>
+  ? GenericType extends ReadonlyArray<infer Inner>
+    ? ReadonlyArray<ExactArgNames<Inner, InnerConstraint>>
+    : GenericType
+  : GenericType & {
+      [Key in keyof GenericType]: Key extends keyof Constraint
+        ? ExactArgNames<GenericType[Key], Constraint[Key]>
+        : never
+    }
+
+type $Atomic = number | string | boolean | null | undefined
 
 let $Enums = new Set<string>([])
 
@@ -382,7 +471,7 @@ export class _Service extends $Base<"_Service"> {
 directives, removes federation types, and includes rest of full schema after
 schema directives have been applied
  */
-      get sdl(): $Field<"sdl", string | null | undefined>  {
+      get sdl(): $Field<"sdl", string | null>  {
        return this.$_select("sdl") as any
       }
 }
@@ -408,7 +497,7 @@ export class Continent extends $Base<"Continent"> {
 
         selection: selectorFn(new Country)
       };
-      return this.$_select("countries", options) as any
+      return this.$_select("countries", options as any) as any
     }
   
 
@@ -420,7 +509,7 @@ export class Continent extends $Base<"Continent"> {
 
 
 export type ContinentFilterInput = {
-  code?: StringQueryOperatorInput | null | undefined
+  code?: StringQueryOperatorInput | null
 }
     
 
@@ -432,7 +521,7 @@ export class Country extends $Base<"Country"> {
 
   
       
-      get capital(): $Field<"capital", string | null | undefined>  {
+      get capital(): $Field<"capital", string | null>  {
        return this.$_select("capital") as any
       }
 
@@ -450,12 +539,12 @@ export class Country extends $Base<"Country"> {
 
         selection: selectorFn(new Continent)
       };
-      return this.$_select("continent", options) as any
+      return this.$_select("continent", options as any) as any
     }
   
 
       
-      get currency(): $Field<"currency", string | null | undefined>  {
+      get currency(): $Field<"currency", string | null>  {
        return this.$_select("currency") as any
       }
 
@@ -478,7 +567,7 @@ export class Country extends $Base<"Country"> {
 
         selection: selectorFn(new Language)
       };
-      return this.$_select("languages", options) as any
+      return this.$_select("languages", options as any) as any
     }
   
 
@@ -506,16 +595,16 @@ export class Country extends $Base<"Country"> {
 
         selection: selectorFn(new State)
       };
-      return this.$_select("states", options) as any
+      return this.$_select("states", options as any) as any
     }
   
 }
 
 
 export type CountryFilterInput = {
-  code?: StringQueryOperatorInput | null | undefined,
-continent?: StringQueryOperatorInput | null | undefined,
-currency?: StringQueryOperatorInput | null | undefined
+  code?: StringQueryOperatorInput | null,
+continent?: StringQueryOperatorInput | null,
+currency?: StringQueryOperatorInput | null
 }
     
 
@@ -532,12 +621,12 @@ export class Language extends $Base<"Language"> {
       }
 
       
-      get name(): $Field<"name", string | null | undefined>  {
+      get name(): $Field<"name", string | null>  {
        return this.$_select("name") as any
       }
 
       
-      get native(): $Field<"native", string | null | undefined>  {
+      get native(): $Field<"native", string | null>  {
        return this.$_select("native") as any
       }
 
@@ -549,7 +638,7 @@ export class Language extends $Base<"Language"> {
 
 
 export type LanguageFilterInput = {
-  code?: StringQueryOperatorInput | null | undefined
+  code?: StringQueryOperatorInput | null
 }
     
 
@@ -562,8 +651,10 @@ export class Query extends $Base<"Query"> {
   
       
       _entities<Args extends VariabledInput<{
-        representations: Readonly<Array<string>>,
-      }>,Sel extends Selection<_Entity>>(args: Args, selectorFn: (s: _Entity) => [...Sel]):$Field<"_entities", Array<GetOutput<Sel> | undefined> , GetVariables<Sel, Args>> {
+        representations: Readonly<Array<_Any>>,
+      }>,Sel extends Selection<_Entity>>(args: ExactArgNames<Args, {
+        representations: Readonly<Array<_Any>>,
+      }>, selectorFn: (s: _Entity) => [...Sel]):$Field<"_entities", Array<GetOutput<Sel> | null> , GetVariables<Sel, Args>> {
       
       const options = {
         argTypes: {
@@ -573,7 +664,7 @@ export class Query extends $Base<"Query"> {
 
         selection: selectorFn(new _Entity)
       };
-      return this.$_select("_entities", options) as any
+      return this.$_select("_entities", options as any) as any
     }
   
 
@@ -586,14 +677,16 @@ export class Query extends $Base<"Query"> {
 
         selection: selectorFn(new _Service)
       };
-      return this.$_select("_service", options) as any
+      return this.$_select("_service", options as any) as any
     }
   
 
       
       continent<Args extends VariabledInput<{
         code: string,
-      }>,Sel extends Selection<Continent>>(args: Args, selectorFn: (s: Continent) => [...Sel]):$Field<"continent", GetOutput<Sel> | undefined , GetVariables<Sel, Args>> {
+      }>,Sel extends Selection<Continent>>(args: ExactArgNames<Args, {
+        code: string,
+      }>, selectorFn: (s: Continent) => [...Sel]):$Field<"continent", GetOutput<Sel> | null , GetVariables<Sel, Args>> {
       
       const options = {
         argTypes: {
@@ -603,14 +696,16 @@ export class Query extends $Base<"Query"> {
 
         selection: selectorFn(new Continent)
       };
-      return this.$_select("continent", options) as any
+      return this.$_select("continent", options as any) as any
     }
   
 
       
       continents<Args extends VariabledInput<{
-        filter?: ContinentFilterInput | null | undefined,
-      }>,Sel extends Selection<Continent>>(args: Args, selectorFn: (s: Continent) => [...Sel]):$Field<"continents", Array<GetOutput<Sel>> , GetVariables<Sel, Args>>
+        filter?: ContinentFilterInput | null,
+      }>,Sel extends Selection<Continent>>(args: ExactArgNames<Args, {
+        filter?: ContinentFilterInput | null,
+      }>, selectorFn: (s: Continent) => [...Sel]):$Field<"continents", Array<GetOutput<Sel>> , GetVariables<Sel, Args>>
 continents<Sel extends Selection<Continent>>(selectorFn: (s: Continent) => [...Sel]):$Field<"continents", Array<GetOutput<Sel>> , GetVariables<Sel>>
 continents(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
@@ -623,14 +718,16 @@ continents(arg1: any, arg2?: any) {
 
         selection: selectorFn(new Continent)
       };
-      return this.$_select("continents", options) as any
+      return this.$_select("continents", options as any) as any
     }
   
 
       
       countries<Args extends VariabledInput<{
-        filter?: CountryFilterInput | null | undefined,
-      }>,Sel extends Selection<Country>>(args: Args, selectorFn: (s: Country) => [...Sel]):$Field<"countries", Array<GetOutput<Sel>> , GetVariables<Sel, Args>>
+        filter?: CountryFilterInput | null,
+      }>,Sel extends Selection<Country>>(args: ExactArgNames<Args, {
+        filter?: CountryFilterInput | null,
+      }>, selectorFn: (s: Country) => [...Sel]):$Field<"countries", Array<GetOutput<Sel>> , GetVariables<Sel, Args>>
 countries<Sel extends Selection<Country>>(selectorFn: (s: Country) => [...Sel]):$Field<"countries", Array<GetOutput<Sel>> , GetVariables<Sel>>
 countries(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
@@ -643,14 +740,16 @@ countries(arg1: any, arg2?: any) {
 
         selection: selectorFn(new Country)
       };
-      return this.$_select("countries", options) as any
+      return this.$_select("countries", options as any) as any
     }
   
 
       
       country<Args extends VariabledInput<{
         code: string,
-      }>,Sel extends Selection<Country>>(args: Args, selectorFn: (s: Country) => [...Sel]):$Field<"country", GetOutput<Sel> | undefined , GetVariables<Sel, Args>> {
+      }>,Sel extends Selection<Country>>(args: ExactArgNames<Args, {
+        code: string,
+      }>, selectorFn: (s: Country) => [...Sel]):$Field<"country", GetOutput<Sel> | null , GetVariables<Sel, Args>> {
       
       const options = {
         argTypes: {
@@ -660,14 +759,16 @@ countries(arg1: any, arg2?: any) {
 
         selection: selectorFn(new Country)
       };
-      return this.$_select("country", options) as any
+      return this.$_select("country", options as any) as any
     }
   
 
       
       language<Args extends VariabledInput<{
         code: string,
-      }>,Sel extends Selection<Language>>(args: Args, selectorFn: (s: Language) => [...Sel]):$Field<"language", GetOutput<Sel> | undefined , GetVariables<Sel, Args>> {
+      }>,Sel extends Selection<Language>>(args: ExactArgNames<Args, {
+        code: string,
+      }>, selectorFn: (s: Language) => [...Sel]):$Field<"language", GetOutput<Sel> | null , GetVariables<Sel, Args>> {
       
       const options = {
         argTypes: {
@@ -677,14 +778,16 @@ countries(arg1: any, arg2?: any) {
 
         selection: selectorFn(new Language)
       };
-      return this.$_select("language", options) as any
+      return this.$_select("language", options as any) as any
     }
   
 
       
       languages<Args extends VariabledInput<{
-        filter?: LanguageFilterInput | null | undefined,
-      }>,Sel extends Selection<Language>>(args: Args, selectorFn: (s: Language) => [...Sel]):$Field<"languages", Array<GetOutput<Sel>> , GetVariables<Sel, Args>>
+        filter?: LanguageFilterInput | null,
+      }>,Sel extends Selection<Language>>(args: ExactArgNames<Args, {
+        filter?: LanguageFilterInput | null,
+      }>, selectorFn: (s: Language) => [...Sel]):$Field<"languages", Array<GetOutput<Sel>> , GetVariables<Sel, Args>>
 languages<Sel extends Selection<Language>>(selectorFn: (s: Language) => [...Sel]):$Field<"languages", Array<GetOutput<Sel>> , GetVariables<Sel>>
 languages(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
@@ -697,7 +800,7 @@ languages(arg1: any, arg2?: any) {
 
         selection: selectorFn(new Language)
       };
-      return this.$_select("languages", options) as any
+      return this.$_select("languages", options as any) as any
     }
   
 }
@@ -710,7 +813,7 @@ export class State extends $Base<"State"> {
 
   
       
-      get code(): $Field<"code", string | null | undefined>  {
+      get code(): $Field<"code", string | null>  {
        return this.$_select("code") as any
       }
 
@@ -723,7 +826,7 @@ export class State extends $Base<"State"> {
 
         selection: selectorFn(new Country)
       };
-      return this.$_select("country", options) as any
+      return this.$_select("country", options as any) as any
     }
   
 
@@ -735,12 +838,12 @@ export class State extends $Base<"State"> {
 
 
 export type StringQueryOperatorInput = {
-  eq?: string | null | undefined,
-glob?: string | null | undefined,
-in?: Readonly<Array<string | null | undefined>> | null | undefined,
-ne?: string | null | undefined,
-nin?: Readonly<Array<string | null | undefined>> | null | undefined,
-regex?: string | null | undefined
+  eq?: string | null,
+glob?: string | null,
+in?: Readonly<Array<string | null>> | null,
+ne?: string | null,
+nin?: Readonly<Array<string | null>> | null,
+regex?: string | null
 }
     
 

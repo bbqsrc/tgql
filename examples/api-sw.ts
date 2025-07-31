@@ -8,6 +8,10 @@ import { gql } from 'graphql-tag'
 
 const VariableName = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd8'
 
+const ScalarBrandingField = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd9'
+
+type CustomScalar<T> = { [ScalarBrandingField]: T }
+
 class Variable<T, Name extends string> {
   private [VariableName]: Name
   // @ts-ignore
@@ -19,18 +23,40 @@ class Variable<T, Name extends string> {
   }
 }
 
-type ArrayInput<I> = [I] extends [$Atomic | null | undefined]
-  ? never
-  : ReadonlyArray<VariabledInput<I>>
+type ArrayInput<I> = [I] extends [$Atomic] ? never : ReadonlyArray<VariabledInput<I>>
+
+type AllowedInlineScalars<S> = S extends string | number ? S : never
+
+export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S>
+  ? S
+  : T extends ReadonlyArray<infer I>
+  ? ReadonlyArray<UnwrapCustomScalars<I>>
+  : T extends Record<string, any>
+  ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
+  : T
+
+type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str>
 
 // the array wrapper prevents distributive conditional types
 // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
-type VariabledInput<T> = [T] extends [$Atomic | null | undefined]
+type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
+  ? // scalars only support variable input
+    Variable<S | null | undefined, any> | AllowedInlineScalars<S> | null | undefined
+  : [T] extends [CustomScalar<infer S>]
+  ? Variable<S, any> | AllowedInlineScalars<S>
+  : [T] extends [$Atomic]
   ? Variable<T, any> | T
   : T extends ReadonlyArray<infer I>
-  ? Variable<T, any> | T | ArrayInput<I>
+  ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
+  : T extends Record<string, any> | null | undefined
+  ?
+      | VariableWithoutScalars<T | null | undefined, any>
+      | null
+      | undefined
+      | { [K in keyof T]: VariabledInput<T[K]> }
+      | T
   : T extends Record<string, any>
-  ? Variable<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
+  ? VariableWithoutScalars<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
   : never
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
@@ -143,27 +169,36 @@ type NeverNever<T> = [T] extends [never] ? {} : T
 
 type Simplify<T> = { [K in keyof T]: T[K] } & {}
 
+type LeafType<T> = T extends CustomScalar<infer S> ? S : T
+
 export type GetOutput<X extends Selection<any>> = Simplify<
   UnionToIntersection<
     {
       [I in keyof X]: X[I] extends $Field<infer Name, infer Type, any>
-        ? { [K in Name]: Type }
+        ? { [K in Name]: LeafType<Type> }
         : never
     }[keyof X & number]
   > &
     NeverNever<
       {
-        [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? Type : never
+        [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type> : never
       }[keyof X & number]
     >
 >
 
-type PossiblyOptionalVar<VName extends string, VType> = undefined extends VType
+type PossiblyOptionalVar<VName extends string, VType> = null extends VType
   ? { [key in VName]?: VType }
   : { [key in VName]: VType }
 
 type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer VName>
   ? PossiblyOptionalVar<VName, VType>
+  : // Avoid generating an index signature for possibly undefined or null inputs.
+  // The compiler incorrectly infers null or undefined, and we must force access the Inputs
+  // type to convince the compiler its "never", while still retaining {} as the result
+  // for null and undefined cases
+  // Works around issue 79
+  Inputs extends null | undefined
+  ? { [K in keyof Inputs]: Inputs[K] }
   : Inputs extends $Atomic
   ? {}
   : Inputs extends any[] | readonly any[]
@@ -224,17 +259,19 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
     argVarType?: ArgVarType
   ): string {
     switch (typeof args) {
-      case 'string':
+      case 'string': {
         const cleanType = argVarType!.type
         if ($Enums.has(cleanType!)) return args
         else return JSON.stringify(args)
+      }
       case 'number':
       case 'boolean':
         return JSON.stringify(args)
-      default:
+      default: {
         if (args == null) return 'null'
         if (VariableName in (args as any)) {
-          if (!argVarType) throw new Error('Cannot use variabe as sole unnamed field argument')
+          if (!argVarType)
+            throw new globalThis.Error('Cannot use variabe as sole unnamed field argument')
           const variable = args as Variable<any, any>
           const argVarName = variable[VariableName]
           variables.set(argVarName, { type: argVarType, variable: variable })
@@ -248,7 +285,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
             .map(([key, val]) => {
               let argTypeForKey = argTypes[key]
               if (!argTypeForKey) {
-                throw new Error(`Argument type for ${key} not found`)
+                throw new globalThis.Error(`Argument type for ${key} not found`)
               }
               const cleanType = argTypeForKey.replace('[', '').replace(']', '').replace(/!/g, '')
               return (
@@ -259,6 +296,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
             })
             .join(',')
         )
+      }
     }
   }
 
@@ -289,7 +327,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
 
       return retVal + ' '
     } else {
-      throw new Error('Uknown field kind')
+      throw new globalThis.Error('Uknown field kind')
     }
   }
 
@@ -323,7 +361,11 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
   return ret
 }
 
-export type OutputTypeOf<T> = T extends $Base<any>
+export type OutputTypeOf<T> = T extends $Interface<infer Subtypes, any>
+  ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
+  : T extends $Union<infer Subtypes, any>
+  ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
+  : T extends $Base<any>
   ? { [K in keyof T]?: OutputTypeOf<T[K]> }
   : [T] extends [$Field<any, infer FieldType, any>]
   ? FieldType
@@ -353,7 +395,54 @@ export function fragment<T, Sel extends Selection<T>>(
   return selectFn(new GQLType())
 }
 
-type $Atomic = number | string | boolean
+type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends () => infer R
+  ? R
+  : never
+
+// TS4.0+
+type Push<T extends any[], V> = [...T, V]
+
+// TS4.1+
+type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = true extends N
+  ? []
+  : Push<TuplifyUnion<Exclude<T, L>>, L>
+
+type AllFieldProperties<I> = {
+  [K in keyof I]: I[K] extends $Field<infer Name, infer Type, any> ? $Field<Name, Type, any> : never
+}
+
+type ValueOf<T> = T[keyof T]
+
+export type AllFields<T> = TuplifyUnion<ValueOf<AllFieldProperties<T>>>
+
+export function all<I extends $Base<any>>(instance: I) {
+  const prototype = Object.getPrototypeOf(instance)
+  const allFields = Object.getOwnPropertyNames(prototype)
+    .map(k => prototype[k])
+    .filter(o => o?.kind === 'field')
+    .map(o => o?.name) as (keyof typeof instance)[]
+  return allFields.map(fieldName => instance?.[fieldName]) as any as AllFields<I>
+}
+
+// We use a dummy conditional type that involves GenericType to defer the compiler's inference of
+// any possible variables nested in this type. This addresses a problem where variables are
+// inferred with type unknown
+// @ts-ignore
+type ExactArgNames<GenericType, Constraint> = GenericType extends never
+  ? never
+  : [Constraint] extends [$Atomic | CustomScalar<any>]
+  ? GenericType
+  : Constraint extends ReadonlyArray<infer InnerConstraint>
+  ? GenericType extends ReadonlyArray<infer Inner>
+    ? ReadonlyArray<ExactArgNames<Inner, InnerConstraint>>
+    : GenericType
+  : GenericType & {
+      [Key in keyof GenericType]: Key extends keyof Constraint
+        ? ExactArgNames<GenericType[Key], Constraint[Key]>
+        : never
+    }
+
+type $Atomic = number | string | boolean | null | undefined
 
 let $Enums = new Set<string>([])
 
@@ -370,12 +459,17 @@ export class Film extends $Base<"Film"> {
   
       
       characterConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<FilmCharactersConnection>>(args: Args, selectorFn: (s: FilmCharactersConnection) => [...Sel]):$Field<"characterConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-characterConnection<Sel extends Selection<FilmCharactersConnection>>(selectorFn: (s: FilmCharactersConnection) => [...Sel]):$Field<"characterConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<FilmCharactersConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: FilmCharactersConnection) => [...Sel]):$Field<"characterConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+characterConnection<Sel extends Selection<FilmCharactersConnection>>(selectorFn: (s: FilmCharactersConnection) => [...Sel]):$Field<"characterConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 characterConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -390,7 +484,7 @@ last: "Int"
 
         selection: selectorFn(new FilmCharactersConnection)
       };
-      return this.$_select("characterConnection", options) as any
+      return this.$_select("characterConnection", options as any) as any
     }
   
 
@@ -398,7 +492,7 @@ last: "Int"
 /**
  * The ISO 8601 date format of the time that this resource was created.
  */
-      get created(): $Field<"created", string | null | undefined>  {
+      get created(): $Field<"created", string | null>  {
        return this.$_select("created") as any
       }
 
@@ -406,7 +500,7 @@ last: "Int"
 /**
  * The name of the director of this film.
  */
-      get director(): $Field<"director", string | null | undefined>  {
+      get director(): $Field<"director", string | null>  {
        return this.$_select("director") as any
       }
 
@@ -414,7 +508,7 @@ last: "Int"
 /**
  * The ISO 8601 date format of the time that this resource was edited.
  */
-      get edited(): $Field<"edited", string | null | undefined>  {
+      get edited(): $Field<"edited", string | null>  {
        return this.$_select("edited") as any
       }
 
@@ -422,7 +516,7 @@ last: "Int"
 /**
  * The episode number of this film.
  */
-      get episodeID(): $Field<"episodeID", number | null | undefined>  {
+      get episodeID(): $Field<"episodeID", number | null>  {
        return this.$_select("episodeID") as any
       }
 
@@ -438,18 +532,23 @@ last: "Int"
 /**
  * The opening paragraphs at the beginning of this film.
  */
-      get openingCrawl(): $Field<"openingCrawl", string | null | undefined>  {
+      get openingCrawl(): $Field<"openingCrawl", string | null>  {
        return this.$_select("openingCrawl") as any
       }
 
       
       planetConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<FilmPlanetsConnection>>(args: Args, selectorFn: (s: FilmPlanetsConnection) => [...Sel]):$Field<"planetConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-planetConnection<Sel extends Selection<FilmPlanetsConnection>>(selectorFn: (s: FilmPlanetsConnection) => [...Sel]):$Field<"planetConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<FilmPlanetsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: FilmPlanetsConnection) => [...Sel]):$Field<"planetConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+planetConnection<Sel extends Selection<FilmPlanetsConnection>>(selectorFn: (s: FilmPlanetsConnection) => [...Sel]):$Field<"planetConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 planetConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -464,7 +563,7 @@ last: "Int"
 
         selection: selectorFn(new FilmPlanetsConnection)
       };
-      return this.$_select("planetConnection", options) as any
+      return this.$_select("planetConnection", options as any) as any
     }
   
 
@@ -472,7 +571,7 @@ last: "Int"
 /**
  * The name(s) of the producer(s) of this film.
  */
-      get producers(): $Field<"producers", Readonly<Array<string | null | undefined>> | null | undefined>  {
+      get producers(): $Field<"producers", Readonly<Array<string | null>> | null>  {
        return this.$_select("producers") as any
       }
 
@@ -480,18 +579,23 @@ last: "Int"
 /**
  * The ISO 8601 date format of film release at original creator country.
  */
-      get releaseDate(): $Field<"releaseDate", string | null | undefined>  {
+      get releaseDate(): $Field<"releaseDate", string | null>  {
        return this.$_select("releaseDate") as any
       }
 
       
       speciesConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<FilmSpeciesConnection>>(args: Args, selectorFn: (s: FilmSpeciesConnection) => [...Sel]):$Field<"speciesConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-speciesConnection<Sel extends Selection<FilmSpeciesConnection>>(selectorFn: (s: FilmSpeciesConnection) => [...Sel]):$Field<"speciesConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<FilmSpeciesConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: FilmSpeciesConnection) => [...Sel]):$Field<"speciesConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+speciesConnection<Sel extends Selection<FilmSpeciesConnection>>(selectorFn: (s: FilmSpeciesConnection) => [...Sel]):$Field<"speciesConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 speciesConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -506,18 +610,23 @@ last: "Int"
 
         selection: selectorFn(new FilmSpeciesConnection)
       };
-      return this.$_select("speciesConnection", options) as any
+      return this.$_select("speciesConnection", options as any) as any
     }
   
 
       
       starshipConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<FilmStarshipsConnection>>(args: Args, selectorFn: (s: FilmStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-starshipConnection<Sel extends Selection<FilmStarshipsConnection>>(selectorFn: (s: FilmStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<FilmStarshipsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: FilmStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+starshipConnection<Sel extends Selection<FilmStarshipsConnection>>(selectorFn: (s: FilmStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 starshipConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -532,7 +641,7 @@ last: "Int"
 
         selection: selectorFn(new FilmStarshipsConnection)
       };
-      return this.$_select("starshipConnection", options) as any
+      return this.$_select("starshipConnection", options as any) as any
     }
   
 
@@ -540,18 +649,23 @@ last: "Int"
 /**
  * The title of this film.
  */
-      get title(): $Field<"title", string | null | undefined>  {
+      get title(): $Field<"title", string | null>  {
        return this.$_select("title") as any
       }
 
       
       vehicleConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<FilmVehiclesConnection>>(args: Args, selectorFn: (s: FilmVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-vehicleConnection<Sel extends Selection<FilmVehiclesConnection>>(selectorFn: (s: FilmVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<FilmVehiclesConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: FilmVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+vehicleConnection<Sel extends Selection<FilmVehiclesConnection>>(selectorFn: (s: FilmVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 vehicleConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -566,7 +680,7 @@ last: "Int"
 
         selection: selectorFn(new FilmVehiclesConnection)
       };
-      return this.$_select("vehicleConnection", options) as any
+      return this.$_select("vehicleConnection", options as any) as any
     }
   
 }
@@ -590,7 +704,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      characters<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"characters", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      characters<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"characters", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -598,7 +712,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("characters", options) as any
+      return this.$_select("characters", options as any) as any
     }
   
 
@@ -606,7 +720,7 @@ full "{ edges { node } }" version should be used instead.
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<FilmCharactersEdge>>(selectorFn: (s: FilmCharactersEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<FilmCharactersEdge>>(selectorFn: (s: FilmCharactersEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -614,7 +728,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new FilmCharactersEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -630,7 +744,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -641,7 +755,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -668,7 +782,7 @@ export class FilmCharactersEdge extends $Base<"FilmCharactersEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -676,7 +790,7 @@ export class FilmCharactersEdge extends $Base<"FilmCharactersEdge"> {
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -695,7 +809,7 @@ export class FilmPlanetsConnection extends $Base<"FilmPlanetsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<FilmPlanetsEdge>>(selectorFn: (s: FilmPlanetsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<FilmPlanetsEdge>>(selectorFn: (s: FilmPlanetsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -703,7 +817,7 @@ export class FilmPlanetsConnection extends $Base<"FilmPlanetsConnection"> {
 
         selection: selectorFn(new FilmPlanetsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -719,7 +833,7 @@ export class FilmPlanetsConnection extends $Base<"FilmPlanetsConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -732,7 +846,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      planets<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"planets", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      planets<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"planets", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -740,7 +854,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Planet)
       };
-      return this.$_select("planets", options) as any
+      return this.$_select("planets", options as any) as any
     }
   
 
@@ -751,7 +865,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -778,7 +892,7 @@ export class FilmPlanetsEdge extends $Base<"FilmPlanetsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -786,7 +900,7 @@ export class FilmPlanetsEdge extends $Base<"FilmPlanetsEdge"> {
 
         selection: selectorFn(new Planet)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -805,7 +919,7 @@ export class FilmsConnection extends $Base<"FilmsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<FilmsEdge>>(selectorFn: (s: FilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<FilmsEdge>>(selectorFn: (s: FilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -813,7 +927,7 @@ export class FilmsConnection extends $Base<"FilmsConnection"> {
 
         selection: selectorFn(new FilmsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -826,7 +940,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -834,7 +948,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("films", options) as any
+      return this.$_select("films", options as any) as any
     }
   
 
@@ -850,7 +964,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -861,7 +975,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -888,7 +1002,7 @@ export class FilmsEdge extends $Base<"FilmsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -896,7 +1010,7 @@ export class FilmsEdge extends $Base<"FilmsEdge"> {
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -915,7 +1029,7 @@ export class FilmSpeciesConnection extends $Base<"FilmSpeciesConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<FilmSpeciesEdge>>(selectorFn: (s: FilmSpeciesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<FilmSpeciesEdge>>(selectorFn: (s: FilmSpeciesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -923,7 +1037,7 @@ export class FilmSpeciesConnection extends $Base<"FilmSpeciesConnection"> {
 
         selection: selectorFn(new FilmSpeciesEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -939,7 +1053,7 @@ export class FilmSpeciesConnection extends $Base<"FilmSpeciesConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -952,7 +1066,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -960,7 +1074,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Species)
       };
-      return this.$_select("species", options) as any
+      return this.$_select("species", options as any) as any
     }
   
 
@@ -971,7 +1085,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -998,7 +1112,7 @@ export class FilmSpeciesEdge extends $Base<"FilmSpeciesEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1006,7 +1120,7 @@ export class FilmSpeciesEdge extends $Base<"FilmSpeciesEdge"> {
 
         selection: selectorFn(new Species)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -1025,7 +1139,7 @@ export class FilmStarshipsConnection extends $Base<"FilmStarshipsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<FilmStarshipsEdge>>(selectorFn: (s: FilmStarshipsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<FilmStarshipsEdge>>(selectorFn: (s: FilmStarshipsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1033,7 +1147,7 @@ export class FilmStarshipsConnection extends $Base<"FilmStarshipsConnection"> {
 
         selection: selectorFn(new FilmStarshipsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -1049,7 +1163,7 @@ export class FilmStarshipsConnection extends $Base<"FilmStarshipsConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -1062,7 +1176,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      starships<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starships", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      starships<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starships", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1070,7 +1184,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Starship)
       };
-      return this.$_select("starships", options) as any
+      return this.$_select("starships", options as any) as any
     }
   
 
@@ -1081,7 +1195,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -1108,7 +1222,7 @@ export class FilmStarshipsEdge extends $Base<"FilmStarshipsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1116,7 +1230,7 @@ export class FilmStarshipsEdge extends $Base<"FilmStarshipsEdge"> {
 
         selection: selectorFn(new Starship)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -1135,7 +1249,7 @@ export class FilmVehiclesConnection extends $Base<"FilmVehiclesConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<FilmVehiclesEdge>>(selectorFn: (s: FilmVehiclesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<FilmVehiclesEdge>>(selectorFn: (s: FilmVehiclesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1143,7 +1257,7 @@ export class FilmVehiclesConnection extends $Base<"FilmVehiclesConnection"> {
 
         selection: selectorFn(new FilmVehiclesEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -1159,7 +1273,7 @@ export class FilmVehiclesConnection extends $Base<"FilmVehiclesConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -1170,7 +1284,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 
@@ -1183,7 +1297,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      vehicles<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicles", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      vehicles<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicles", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1191,7 +1305,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Vehicle)
       };
-      return this.$_select("vehicles", options) as any
+      return this.$_select("vehicles", options as any) as any
     }
   
 }
@@ -1218,7 +1332,7 @@ export class FilmVehiclesEdge extends $Base<"FilmVehiclesEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1226,7 +1340,7 @@ export class FilmVehiclesEdge extends $Base<"FilmVehiclesEdge"> {
 
         selection: selectorFn(new Vehicle)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -1263,7 +1377,7 @@ export class PageInfo extends $Base<"PageInfo"> {
 /**
  * When paginating forwards, the cursor to continue.
  */
-      get endCursor(): $Field<"endCursor", string | null | undefined>  {
+      get endCursor(): $Field<"endCursor", string | null>  {
        return this.$_select("endCursor") as any
       }
 
@@ -1287,7 +1401,7 @@ export class PageInfo extends $Base<"PageInfo"> {
 /**
  * When paginating backwards, the cursor to continue.
  */
-      get startCursor(): $Field<"startCursor", string | null | undefined>  {
+      get startCursor(): $Field<"startCursor", string | null>  {
        return this.$_select("startCursor") as any
       }
 }
@@ -1306,7 +1420,7 @@ export class PeopleConnection extends $Base<"PeopleConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<PeopleEdge>>(selectorFn: (s: PeopleEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<PeopleEdge>>(selectorFn: (s: PeopleEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1314,7 +1428,7 @@ export class PeopleConnection extends $Base<"PeopleConnection"> {
 
         selection: selectorFn(new PeopleEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -1330,7 +1444,7 @@ export class PeopleConnection extends $Base<"PeopleConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -1343,7 +1457,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      people<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"people", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      people<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"people", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1351,7 +1465,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("people", options) as any
+      return this.$_select("people", options as any) as any
     }
   
 
@@ -1362,7 +1476,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -1389,7 +1503,7 @@ export class PeopleEdge extends $Base<"PeopleEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1397,7 +1511,7 @@ export class PeopleEdge extends $Base<"PeopleEdge"> {
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -1418,7 +1532,7 @@ export class Person extends $Base<"Person"> {
 Before the Battle of Yavin or After the Battle of Yavin. The Battle of Yavin is
 a battle that occurs at the end of Star Wars episode IV: A New Hope.
  */
-      get birthYear(): $Field<"birthYear", string | null | undefined>  {
+      get birthYear(): $Field<"birthYear", string | null>  {
        return this.$_select("birthYear") as any
       }
 
@@ -1426,7 +1540,7 @@ a battle that occurs at the end of Star Wars episode IV: A New Hope.
 /**
  * The ISO 8601 date format of the time that this resource was created.
  */
-      get created(): $Field<"created", string | null | undefined>  {
+      get created(): $Field<"created", string | null>  {
        return this.$_select("created") as any
       }
 
@@ -1434,7 +1548,7 @@ a battle that occurs at the end of Star Wars episode IV: A New Hope.
 /**
  * The ISO 8601 date format of the time that this resource was edited.
  */
-      get edited(): $Field<"edited", string | null | undefined>  {
+      get edited(): $Field<"edited", string | null>  {
        return this.$_select("edited") as any
       }
 
@@ -1443,18 +1557,23 @@ a battle that occurs at the end of Star Wars episode IV: A New Hope.
  * The eye color of this person. Will be "unknown" if not known or "n/a" if the
 person does not have an eye.
  */
-      get eyeColor(): $Field<"eyeColor", string | null | undefined>  {
+      get eyeColor(): $Field<"eyeColor", string | null>  {
        return this.$_select("eyeColor") as any
       }
 
       
       filmConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<PersonFilmsConnection>>(args: Args, selectorFn: (s: PersonFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<PersonFilmsConnection>>(selectorFn: (s: PersonFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<PersonFilmsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: PersonFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+filmConnection<Sel extends Selection<PersonFilmsConnection>>(selectorFn: (s: PersonFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 filmConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -1469,7 +1588,7 @@ last: "Int"
 
         selection: selectorFn(new PersonFilmsConnection)
       };
-      return this.$_select("filmConnection", options) as any
+      return this.$_select("filmConnection", options as any) as any
     }
   
 
@@ -1478,7 +1597,7 @@ last: "Int"
  * The gender of this person. Either "Male", "Female" or "unknown",
 "n/a" if the person does not have a gender.
  */
-      get gender(): $Field<"gender", string | null | undefined>  {
+      get gender(): $Field<"gender", string | null>  {
        return this.$_select("gender") as any
       }
 
@@ -1487,7 +1606,7 @@ last: "Int"
  * The hair color of this person. Will be "unknown" if not known or "n/a" if the
 person does not have hair.
  */
-      get hairColor(): $Field<"hairColor", string | null | undefined>  {
+      get hairColor(): $Field<"hairColor", string | null>  {
        return this.$_select("hairColor") as any
       }
 
@@ -1495,7 +1614,7 @@ person does not have hair.
 /**
  * The height of the person in centimeters.
  */
-      get height(): $Field<"height", number | null | undefined>  {
+      get height(): $Field<"height", number | null>  {
        return this.$_select("height") as any
       }
 
@@ -1503,7 +1622,7 @@ person does not have hair.
 /**
  * A planet that this person was born on or inhabits.
  */
-      homeworld<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"homeworld", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      homeworld<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"homeworld", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1511,7 +1630,7 @@ person does not have hair.
 
         selection: selectorFn(new Planet)
       };
-      return this.$_select("homeworld", options) as any
+      return this.$_select("homeworld", options as any) as any
     }
   
 
@@ -1527,7 +1646,7 @@ person does not have hair.
 /**
  * The mass of the person in kilograms.
  */
-      get mass(): $Field<"mass", number | null | undefined>  {
+      get mass(): $Field<"mass", number | null>  {
        return this.$_select("mass") as any
       }
 
@@ -1535,7 +1654,7 @@ person does not have hair.
 /**
  * The name of this person.
  */
-      get name(): $Field<"name", string | null | undefined>  {
+      get name(): $Field<"name", string | null>  {
        return this.$_select("name") as any
       }
 
@@ -1543,7 +1662,7 @@ person does not have hair.
 /**
  * The skin color of this person.
  */
-      get skinColor(): $Field<"skinColor", string | null | undefined>  {
+      get skinColor(): $Field<"skinColor", string | null>  {
        return this.$_select("skinColor") as any
       }
 
@@ -1551,7 +1670,7 @@ person does not have hair.
 /**
  * The species that this person belongs to, or null if unknown.
  */
-      species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1559,18 +1678,23 @@ person does not have hair.
 
         selection: selectorFn(new Species)
       };
-      return this.$_select("species", options) as any
+      return this.$_select("species", options as any) as any
     }
   
 
       
       starshipConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<PersonStarshipsConnection>>(args: Args, selectorFn: (s: PersonStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-starshipConnection<Sel extends Selection<PersonStarshipsConnection>>(selectorFn: (s: PersonStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<PersonStarshipsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: PersonStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+starshipConnection<Sel extends Selection<PersonStarshipsConnection>>(selectorFn: (s: PersonStarshipsConnection) => [...Sel]):$Field<"starshipConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 starshipConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -1585,18 +1709,23 @@ last: "Int"
 
         selection: selectorFn(new PersonStarshipsConnection)
       };
-      return this.$_select("starshipConnection", options) as any
+      return this.$_select("starshipConnection", options as any) as any
     }
   
 
       
       vehicleConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<PersonVehiclesConnection>>(args: Args, selectorFn: (s: PersonVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-vehicleConnection<Sel extends Selection<PersonVehiclesConnection>>(selectorFn: (s: PersonVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<PersonVehiclesConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: PersonVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+vehicleConnection<Sel extends Selection<PersonVehiclesConnection>>(selectorFn: (s: PersonVehiclesConnection) => [...Sel]):$Field<"vehicleConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 vehicleConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -1611,7 +1740,7 @@ last: "Int"
 
         selection: selectorFn(new PersonVehiclesConnection)
       };
-      return this.$_select("vehicleConnection", options) as any
+      return this.$_select("vehicleConnection", options as any) as any
     }
   
 }
@@ -1630,7 +1759,7 @@ export class PersonFilmsConnection extends $Base<"PersonFilmsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<PersonFilmsEdge>>(selectorFn: (s: PersonFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<PersonFilmsEdge>>(selectorFn: (s: PersonFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1638,7 +1767,7 @@ export class PersonFilmsConnection extends $Base<"PersonFilmsConnection"> {
 
         selection: selectorFn(new PersonFilmsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -1651,7 +1780,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1659,7 +1788,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("films", options) as any
+      return this.$_select("films", options as any) as any
     }
   
 
@@ -1675,7 +1804,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -1686,7 +1815,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -1713,7 +1842,7 @@ export class PersonFilmsEdge extends $Base<"PersonFilmsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1721,7 +1850,7 @@ export class PersonFilmsEdge extends $Base<"PersonFilmsEdge"> {
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -1740,7 +1869,7 @@ export class PersonStarshipsConnection extends $Base<"PersonStarshipsConnection"
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<PersonStarshipsEdge>>(selectorFn: (s: PersonStarshipsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<PersonStarshipsEdge>>(selectorFn: (s: PersonStarshipsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1748,7 +1877,7 @@ export class PersonStarshipsConnection extends $Base<"PersonStarshipsConnection"
 
         selection: selectorFn(new PersonStarshipsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -1764,7 +1893,7 @@ export class PersonStarshipsConnection extends $Base<"PersonStarshipsConnection"
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -1777,7 +1906,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      starships<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starships", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      starships<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starships", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1785,7 +1914,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Starship)
       };
-      return this.$_select("starships", options) as any
+      return this.$_select("starships", options as any) as any
     }
   
 
@@ -1796,7 +1925,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -1823,7 +1952,7 @@ export class PersonStarshipsEdge extends $Base<"PersonStarshipsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1831,7 +1960,7 @@ export class PersonStarshipsEdge extends $Base<"PersonStarshipsEdge"> {
 
         selection: selectorFn(new Starship)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -1850,7 +1979,7 @@ export class PersonVehiclesConnection extends $Base<"PersonVehiclesConnection"> 
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<PersonVehiclesEdge>>(selectorFn: (s: PersonVehiclesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<PersonVehiclesEdge>>(selectorFn: (s: PersonVehiclesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1858,7 +1987,7 @@ export class PersonVehiclesConnection extends $Base<"PersonVehiclesConnection"> 
 
         selection: selectorFn(new PersonVehiclesEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -1874,7 +2003,7 @@ export class PersonVehiclesConnection extends $Base<"PersonVehiclesConnection"> 
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -1885,7 +2014,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 
@@ -1898,7 +2027,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      vehicles<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicles", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      vehicles<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicles", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1906,7 +2035,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Vehicle)
       };
-      return this.$_select("vehicles", options) as any
+      return this.$_select("vehicles", options as any) as any
     }
   
 }
@@ -1933,7 +2062,7 @@ export class PersonVehiclesEdge extends $Base<"PersonVehiclesEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -1941,7 +2070,7 @@ export class PersonVehiclesEdge extends $Base<"PersonVehiclesEdge"> {
 
         selection: selectorFn(new Vehicle)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -1961,7 +2090,7 @@ export class Planet extends $Base<"Planet"> {
 /**
  * The climates of this planet.
  */
-      get climates(): $Field<"climates", Readonly<Array<string | null | undefined>> | null | undefined>  {
+      get climates(): $Field<"climates", Readonly<Array<string | null>> | null>  {
        return this.$_select("climates") as any
       }
 
@@ -1969,7 +2098,7 @@ export class Planet extends $Base<"Planet"> {
 /**
  * The ISO 8601 date format of the time that this resource was created.
  */
-      get created(): $Field<"created", string | null | undefined>  {
+      get created(): $Field<"created", string | null>  {
        return this.$_select("created") as any
       }
 
@@ -1977,7 +2106,7 @@ export class Planet extends $Base<"Planet"> {
 /**
  * The diameter of this planet in kilometers.
  */
-      get diameter(): $Field<"diameter", number | null | undefined>  {
+      get diameter(): $Field<"diameter", number | null>  {
        return this.$_select("diameter") as any
       }
 
@@ -1985,18 +2114,23 @@ export class Planet extends $Base<"Planet"> {
 /**
  * The ISO 8601 date format of the time that this resource was edited.
  */
-      get edited(): $Field<"edited", string | null | undefined>  {
+      get edited(): $Field<"edited", string | null>  {
        return this.$_select("edited") as any
       }
 
       
       filmConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<PlanetFilmsConnection>>(args: Args, selectorFn: (s: PlanetFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<PlanetFilmsConnection>>(selectorFn: (s: PlanetFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<PlanetFilmsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: PlanetFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+filmConnection<Sel extends Selection<PlanetFilmsConnection>>(selectorFn: (s: PlanetFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 filmConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2011,7 +2145,7 @@ last: "Int"
 
         selection: selectorFn(new PlanetFilmsConnection)
       };
-      return this.$_select("filmConnection", options) as any
+      return this.$_select("filmConnection", options as any) as any
     }
   
 
@@ -2020,7 +2154,7 @@ last: "Int"
  * A number denoting the gravity of this planet, where "1" is normal or 1 standard
 G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.
  */
-      get gravity(): $Field<"gravity", string | null | undefined>  {
+      get gravity(): $Field<"gravity", string | null>  {
        return this.$_select("gravity") as any
       }
 
@@ -2036,7 +2170,7 @@ G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.
 /**
  * The name of this planet.
  */
-      get name(): $Field<"name", string | null | undefined>  {
+      get name(): $Field<"name", string | null>  {
        return this.$_select("name") as any
       }
 
@@ -2045,7 +2179,7 @@ G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.
  * The number of standard days it takes for this planet to complete a single orbit
 of its local star.
  */
-      get orbitalPeriod(): $Field<"orbitalPeriod", number | null | undefined>  {
+      get orbitalPeriod(): $Field<"orbitalPeriod", number | null>  {
        return this.$_select("orbitalPeriod") as any
       }
 
@@ -2053,18 +2187,23 @@ of its local star.
 /**
  * The average population of sentient beings inhabiting this planet.
  */
-      get population(): $Field<"population", number | null | undefined>  {
+      get population(): $Field<"population", number | null>  {
        return this.$_select("population") as any
       }
 
       
       residentConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<PlanetResidentsConnection>>(args: Args, selectorFn: (s: PlanetResidentsConnection) => [...Sel]):$Field<"residentConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-residentConnection<Sel extends Selection<PlanetResidentsConnection>>(selectorFn: (s: PlanetResidentsConnection) => [...Sel]):$Field<"residentConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<PlanetResidentsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: PlanetResidentsConnection) => [...Sel]):$Field<"residentConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+residentConnection<Sel extends Selection<PlanetResidentsConnection>>(selectorFn: (s: PlanetResidentsConnection) => [...Sel]):$Field<"residentConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 residentConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2079,7 +2218,7 @@ last: "Int"
 
         selection: selectorFn(new PlanetResidentsConnection)
       };
-      return this.$_select("residentConnection", options) as any
+      return this.$_select("residentConnection", options as any) as any
     }
   
 
@@ -2088,7 +2227,7 @@ last: "Int"
  * The number of standard hours it takes for this planet to complete a single
 rotation on its axis.
  */
-      get rotationPeriod(): $Field<"rotationPeriod", number | null | undefined>  {
+      get rotationPeriod(): $Field<"rotationPeriod", number | null>  {
        return this.$_select("rotationPeriod") as any
       }
 
@@ -2097,7 +2236,7 @@ rotation on its axis.
  * The percentage of the planet surface that is naturally occurring water or bodies
 of water.
  */
-      get surfaceWater(): $Field<"surfaceWater", number | null | undefined>  {
+      get surfaceWater(): $Field<"surfaceWater", number | null>  {
        return this.$_select("surfaceWater") as any
       }
 
@@ -2105,7 +2244,7 @@ of water.
 /**
  * The terrains of this planet.
  */
-      get terrains(): $Field<"terrains", Readonly<Array<string | null | undefined>> | null | undefined>  {
+      get terrains(): $Field<"terrains", Readonly<Array<string | null>> | null>  {
        return this.$_select("terrains") as any
       }
 }
@@ -2124,7 +2263,7 @@ export class PlanetFilmsConnection extends $Base<"PlanetFilmsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<PlanetFilmsEdge>>(selectorFn: (s: PlanetFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<PlanetFilmsEdge>>(selectorFn: (s: PlanetFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2132,7 +2271,7 @@ export class PlanetFilmsConnection extends $Base<"PlanetFilmsConnection"> {
 
         selection: selectorFn(new PlanetFilmsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -2145,7 +2284,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2153,7 +2292,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("films", options) as any
+      return this.$_select("films", options as any) as any
     }
   
 
@@ -2169,7 +2308,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -2180,7 +2319,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -2207,7 +2346,7 @@ export class PlanetFilmsEdge extends $Base<"PlanetFilmsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2215,7 +2354,7 @@ export class PlanetFilmsEdge extends $Base<"PlanetFilmsEdge"> {
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -2234,7 +2373,7 @@ export class PlanetResidentsConnection extends $Base<"PlanetResidentsConnection"
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<PlanetResidentsEdge>>(selectorFn: (s: PlanetResidentsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<PlanetResidentsEdge>>(selectorFn: (s: PlanetResidentsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2242,7 +2381,7 @@ export class PlanetResidentsConnection extends $Base<"PlanetResidentsConnection"
 
         selection: selectorFn(new PlanetResidentsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -2258,7 +2397,7 @@ export class PlanetResidentsConnection extends $Base<"PlanetResidentsConnection"
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -2271,7 +2410,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      residents<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"residents", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      residents<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"residents", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2279,7 +2418,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("residents", options) as any
+      return this.$_select("residents", options as any) as any
     }
   
 
@@ -2290,7 +2429,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -2317,7 +2456,7 @@ export class PlanetResidentsEdge extends $Base<"PlanetResidentsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2325,7 +2464,7 @@ export class PlanetResidentsEdge extends $Base<"PlanetResidentsEdge"> {
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -2344,7 +2483,7 @@ export class PlanetsConnection extends $Base<"PlanetsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<PlanetsEdge>>(selectorFn: (s: PlanetsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<PlanetsEdge>>(selectorFn: (s: PlanetsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2352,7 +2491,7 @@ export class PlanetsConnection extends $Base<"PlanetsConnection"> {
 
         selection: selectorFn(new PlanetsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -2368,7 +2507,7 @@ export class PlanetsConnection extends $Base<"PlanetsConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -2381,7 +2520,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      planets<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"planets", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      planets<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"planets", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2389,7 +2528,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Planet)
       };
-      return this.$_select("planets", options) as any
+      return this.$_select("planets", options as any) as any
     }
   
 
@@ -2400,7 +2539,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -2427,7 +2566,7 @@ export class PlanetsEdge extends $Base<"PlanetsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2435,7 +2574,7 @@ export class PlanetsEdge extends $Base<"PlanetsEdge"> {
 
         selection: selectorFn(new Planet)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -2449,12 +2588,17 @@ export class Root extends $Base<"Root"> {
   
       
       allFilms<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<FilmsConnection>>(args: Args, selectorFn: (s: FilmsConnection) => [...Sel]):$Field<"allFilms", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-allFilms<Sel extends Selection<FilmsConnection>>(selectorFn: (s: FilmsConnection) => [...Sel]):$Field<"allFilms", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<FilmsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: FilmsConnection) => [...Sel]):$Field<"allFilms", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+allFilms<Sel extends Selection<FilmsConnection>>(selectorFn: (s: FilmsConnection) => [...Sel]):$Field<"allFilms", GetOutput<Sel> | null , GetVariables<Sel>>
 allFilms(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2469,18 +2613,23 @@ last: "Int"
 
         selection: selectorFn(new FilmsConnection)
       };
-      return this.$_select("allFilms", options) as any
+      return this.$_select("allFilms", options as any) as any
     }
   
 
       
       allPeople<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<PeopleConnection>>(args: Args, selectorFn: (s: PeopleConnection) => [...Sel]):$Field<"allPeople", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-allPeople<Sel extends Selection<PeopleConnection>>(selectorFn: (s: PeopleConnection) => [...Sel]):$Field<"allPeople", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<PeopleConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: PeopleConnection) => [...Sel]):$Field<"allPeople", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+allPeople<Sel extends Selection<PeopleConnection>>(selectorFn: (s: PeopleConnection) => [...Sel]):$Field<"allPeople", GetOutput<Sel> | null , GetVariables<Sel>>
 allPeople(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2495,18 +2644,23 @@ last: "Int"
 
         selection: selectorFn(new PeopleConnection)
       };
-      return this.$_select("allPeople", options) as any
+      return this.$_select("allPeople", options as any) as any
     }
   
 
       
       allPlanets<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<PlanetsConnection>>(args: Args, selectorFn: (s: PlanetsConnection) => [...Sel]):$Field<"allPlanets", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-allPlanets<Sel extends Selection<PlanetsConnection>>(selectorFn: (s: PlanetsConnection) => [...Sel]):$Field<"allPlanets", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<PlanetsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: PlanetsConnection) => [...Sel]):$Field<"allPlanets", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+allPlanets<Sel extends Selection<PlanetsConnection>>(selectorFn: (s: PlanetsConnection) => [...Sel]):$Field<"allPlanets", GetOutput<Sel> | null , GetVariables<Sel>>
 allPlanets(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2521,18 +2675,23 @@ last: "Int"
 
         selection: selectorFn(new PlanetsConnection)
       };
-      return this.$_select("allPlanets", options) as any
+      return this.$_select("allPlanets", options as any) as any
     }
   
 
       
       allSpecies<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<SpeciesConnection>>(args: Args, selectorFn: (s: SpeciesConnection) => [...Sel]):$Field<"allSpecies", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-allSpecies<Sel extends Selection<SpeciesConnection>>(selectorFn: (s: SpeciesConnection) => [...Sel]):$Field<"allSpecies", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<SpeciesConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: SpeciesConnection) => [...Sel]):$Field<"allSpecies", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+allSpecies<Sel extends Selection<SpeciesConnection>>(selectorFn: (s: SpeciesConnection) => [...Sel]):$Field<"allSpecies", GetOutput<Sel> | null , GetVariables<Sel>>
 allSpecies(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2547,18 +2706,23 @@ last: "Int"
 
         selection: selectorFn(new SpeciesConnection)
       };
-      return this.$_select("allSpecies", options) as any
+      return this.$_select("allSpecies", options as any) as any
     }
   
 
       
       allStarships<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<StarshipsConnection>>(args: Args, selectorFn: (s: StarshipsConnection) => [...Sel]):$Field<"allStarships", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-allStarships<Sel extends Selection<StarshipsConnection>>(selectorFn: (s: StarshipsConnection) => [...Sel]):$Field<"allStarships", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<StarshipsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: StarshipsConnection) => [...Sel]):$Field<"allStarships", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+allStarships<Sel extends Selection<StarshipsConnection>>(selectorFn: (s: StarshipsConnection) => [...Sel]):$Field<"allStarships", GetOutput<Sel> | null , GetVariables<Sel>>
 allStarships(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2573,18 +2737,23 @@ last: "Int"
 
         selection: selectorFn(new StarshipsConnection)
       };
-      return this.$_select("allStarships", options) as any
+      return this.$_select("allStarships", options as any) as any
     }
   
 
       
       allVehicles<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<VehiclesConnection>>(args: Args, selectorFn: (s: VehiclesConnection) => [...Sel]):$Field<"allVehicles", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-allVehicles<Sel extends Selection<VehiclesConnection>>(selectorFn: (s: VehiclesConnection) => [...Sel]):$Field<"allVehicles", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<VehiclesConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: VehiclesConnection) => [...Sel]):$Field<"allVehicles", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+allVehicles<Sel extends Selection<VehiclesConnection>>(selectorFn: (s: VehiclesConnection) => [...Sel]):$Field<"allVehicles", GetOutput<Sel> | null , GetVariables<Sel>>
 allVehicles(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2599,16 +2768,19 @@ last: "Int"
 
         selection: selectorFn(new VehiclesConnection)
       };
-      return this.$_select("allVehicles", options) as any
+      return this.$_select("allVehicles", options as any) as any
     }
   
 
       
       film<Args extends VariabledInput<{
-        id?: string | null | undefined
-filmID?: string | null | undefined,
-      }>,Sel extends Selection<Film>>(args: Args, selectorFn: (s: Film) => [...Sel]):$Field<"film", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-film<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"film", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        id?: string | null
+filmID?: string | null,
+      }>,Sel extends Selection<Film>>(args: ExactArgNames<Args, {
+        id?: string | null
+filmID?: string | null,
+      }>, selectorFn: (s: Film) => [...Sel]):$Field<"film", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+film<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"film", GetOutput<Sel> | null , GetVariables<Sel>>
 film(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2621,7 +2793,7 @@ filmID: "ID"
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("film", options) as any
+      return this.$_select("film", options as any) as any
     }
   
 
@@ -2631,7 +2803,9 @@ filmID: "ID"
  */
       node<Args extends VariabledInput<{
         id: string,
-      }>,Sel extends Selection<Node>>(args: Args, selectorFn: (s: Node) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel, Args>> {
+      }>,Sel extends Selection<Node>>(args: ExactArgNames<Args, {
+        id: string,
+      }>, selectorFn: (s: Node) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel, Args>> {
       
       const options = {
         argTypes: {
@@ -2641,16 +2815,19 @@ filmID: "ID"
 
         selection: selectorFn(new Node)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 
       
       person<Args extends VariabledInput<{
-        id?: string | null | undefined
-personID?: string | null | undefined,
-      }>,Sel extends Selection<Person>>(args: Args, selectorFn: (s: Person) => [...Sel]):$Field<"person", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-person<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"person", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        id?: string | null
+personID?: string | null,
+      }>,Sel extends Selection<Person>>(args: ExactArgNames<Args, {
+        id?: string | null
+personID?: string | null,
+      }>, selectorFn: (s: Person) => [...Sel]):$Field<"person", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+person<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"person", GetOutput<Sel> | null , GetVariables<Sel>>
 person(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2663,16 +2840,19 @@ personID: "ID"
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("person", options) as any
+      return this.$_select("person", options as any) as any
     }
   
 
       
       planet<Args extends VariabledInput<{
-        id?: string | null | undefined
-planetID?: string | null | undefined,
-      }>,Sel extends Selection<Planet>>(args: Args, selectorFn: (s: Planet) => [...Sel]):$Field<"planet", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-planet<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"planet", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        id?: string | null
+planetID?: string | null,
+      }>,Sel extends Selection<Planet>>(args: ExactArgNames<Args, {
+        id?: string | null
+planetID?: string | null,
+      }>, selectorFn: (s: Planet) => [...Sel]):$Field<"planet", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+planet<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"planet", GetOutput<Sel> | null , GetVariables<Sel>>
 planet(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2685,16 +2865,19 @@ planetID: "ID"
 
         selection: selectorFn(new Planet)
       };
-      return this.$_select("planet", options) as any
+      return this.$_select("planet", options as any) as any
     }
   
 
       
       species<Args extends VariabledInput<{
-        id?: string | null | undefined
-speciesID?: string | null | undefined,
-      }>,Sel extends Selection<Species>>(args: Args, selectorFn: (s: Species) => [...Sel]):$Field<"species", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        id?: string | null
+speciesID?: string | null,
+      }>,Sel extends Selection<Species>>(args: ExactArgNames<Args, {
+        id?: string | null
+speciesID?: string | null,
+      }>, selectorFn: (s: Species) => [...Sel]):$Field<"species", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", GetOutput<Sel> | null , GetVariables<Sel>>
 species(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2707,16 +2890,19 @@ speciesID: "ID"
 
         selection: selectorFn(new Species)
       };
-      return this.$_select("species", options) as any
+      return this.$_select("species", options as any) as any
     }
   
 
       
       starship<Args extends VariabledInput<{
-        id?: string | null | undefined
-starshipID?: string | null | undefined,
-      }>,Sel extends Selection<Starship>>(args: Args, selectorFn: (s: Starship) => [...Sel]):$Field<"starship", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-starship<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starship", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        id?: string | null
+starshipID?: string | null,
+      }>,Sel extends Selection<Starship>>(args: ExactArgNames<Args, {
+        id?: string | null
+starshipID?: string | null,
+      }>, selectorFn: (s: Starship) => [...Sel]):$Field<"starship", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+starship<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starship", GetOutput<Sel> | null , GetVariables<Sel>>
 starship(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2729,16 +2915,19 @@ starshipID: "ID"
 
         selection: selectorFn(new Starship)
       };
-      return this.$_select("starship", options) as any
+      return this.$_select("starship", options as any) as any
     }
   
 
       
       vehicle<Args extends VariabledInput<{
-        id?: string | null | undefined
-vehicleID?: string | null | undefined,
-      }>,Sel extends Selection<Vehicle>>(args: Args, selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicle", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-vehicle<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicle", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        id?: string | null
+vehicleID?: string | null,
+      }>,Sel extends Selection<Vehicle>>(args: ExactArgNames<Args, {
+        id?: string | null
+vehicleID?: string | null,
+      }>, selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicle", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+vehicle<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicle", GetOutput<Sel> | null , GetVariables<Sel>>
 vehicle(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2751,7 +2940,7 @@ vehicleID: "ID"
 
         selection: selectorFn(new Vehicle)
       };
-      return this.$_select("vehicle", options) as any
+      return this.$_select("vehicle", options as any) as any
     }
   
 }
@@ -2770,7 +2959,7 @@ export class Species extends $Base<"Species"> {
 /**
  * The average height of this species in centimeters.
  */
-      get averageHeight(): $Field<"averageHeight", number | null | undefined>  {
+      get averageHeight(): $Field<"averageHeight", number | null>  {
        return this.$_select("averageHeight") as any
       }
 
@@ -2778,7 +2967,7 @@ export class Species extends $Base<"Species"> {
 /**
  * The average lifespan of this species in years, null if unknown.
  */
-      get averageLifespan(): $Field<"averageLifespan", number | null | undefined>  {
+      get averageLifespan(): $Field<"averageLifespan", number | null>  {
        return this.$_select("averageLifespan") as any
       }
 
@@ -2786,7 +2975,7 @@ export class Species extends $Base<"Species"> {
 /**
  * The classification of this species, such as "mammal" or "reptile".
  */
-      get classification(): $Field<"classification", string | null | undefined>  {
+      get classification(): $Field<"classification", string | null>  {
        return this.$_select("classification") as any
       }
 
@@ -2794,7 +2983,7 @@ export class Species extends $Base<"Species"> {
 /**
  * The ISO 8601 date format of the time that this resource was created.
  */
-      get created(): $Field<"created", string | null | undefined>  {
+      get created(): $Field<"created", string | null>  {
        return this.$_select("created") as any
       }
 
@@ -2802,7 +2991,7 @@ export class Species extends $Base<"Species"> {
 /**
  * The designation of this species, such as "sentient".
  */
-      get designation(): $Field<"designation", string | null | undefined>  {
+      get designation(): $Field<"designation", string | null>  {
        return this.$_select("designation") as any
       }
 
@@ -2810,7 +2999,7 @@ export class Species extends $Base<"Species"> {
 /**
  * The ISO 8601 date format of the time that this resource was edited.
  */
-      get edited(): $Field<"edited", string | null | undefined>  {
+      get edited(): $Field<"edited", string | null>  {
        return this.$_select("edited") as any
       }
 
@@ -2819,18 +3008,23 @@ export class Species extends $Base<"Species"> {
  * Common eye colors for this species, null if this species does not typically
 have eyes.
  */
-      get eyeColors(): $Field<"eyeColors", Readonly<Array<string | null | undefined>> | null | undefined>  {
+      get eyeColors(): $Field<"eyeColors", Readonly<Array<string | null>> | null>  {
        return this.$_select("eyeColors") as any
       }
 
       
       filmConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<SpeciesFilmsConnection>>(args: Args, selectorFn: (s: SpeciesFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<SpeciesFilmsConnection>>(selectorFn: (s: SpeciesFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<SpeciesFilmsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: SpeciesFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+filmConnection<Sel extends Selection<SpeciesFilmsConnection>>(selectorFn: (s: SpeciesFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 filmConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2845,7 +3039,7 @@ last: "Int"
 
         selection: selectorFn(new SpeciesFilmsConnection)
       };
-      return this.$_select("filmConnection", options) as any
+      return this.$_select("filmConnection", options as any) as any
     }
   
 
@@ -2854,7 +3048,7 @@ last: "Int"
  * Common hair colors for this species, null if this species does not typically
 have hair.
  */
-      get hairColors(): $Field<"hairColors", Readonly<Array<string | null | undefined>> | null | undefined>  {
+      get hairColors(): $Field<"hairColors", Readonly<Array<string | null>> | null>  {
        return this.$_select("hairColors") as any
       }
 
@@ -2862,7 +3056,7 @@ have hair.
 /**
  * A planet that this species originates from.
  */
-      homeworld<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"homeworld", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      homeworld<Sel extends Selection<Planet>>(selectorFn: (s: Planet) => [...Sel]):$Field<"homeworld", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2870,7 +3064,7 @@ have hair.
 
         selection: selectorFn(new Planet)
       };
-      return this.$_select("homeworld", options) as any
+      return this.$_select("homeworld", options as any) as any
     }
   
 
@@ -2886,7 +3080,7 @@ have hair.
 /**
  * The language commonly spoken by this species.
  */
-      get language(): $Field<"language", string | null | undefined>  {
+      get language(): $Field<"language", string | null>  {
        return this.$_select("language") as any
       }
 
@@ -2894,18 +3088,23 @@ have hair.
 /**
  * The name of this species.
  */
-      get name(): $Field<"name", string | null | undefined>  {
+      get name(): $Field<"name", string | null>  {
        return this.$_select("name") as any
       }
 
       
       personConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<SpeciesPeopleConnection>>(args: Args, selectorFn: (s: SpeciesPeopleConnection) => [...Sel]):$Field<"personConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-personConnection<Sel extends Selection<SpeciesPeopleConnection>>(selectorFn: (s: SpeciesPeopleConnection) => [...Sel]):$Field<"personConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<SpeciesPeopleConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: SpeciesPeopleConnection) => [...Sel]):$Field<"personConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+personConnection<Sel extends Selection<SpeciesPeopleConnection>>(selectorFn: (s: SpeciesPeopleConnection) => [...Sel]):$Field<"personConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 personConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -2920,7 +3119,7 @@ last: "Int"
 
         selection: selectorFn(new SpeciesPeopleConnection)
       };
-      return this.$_select("personConnection", options) as any
+      return this.$_select("personConnection", options as any) as any
     }
   
 
@@ -2929,7 +3128,7 @@ last: "Int"
  * Common skin colors for this species, null if this species does not typically
 have skin.
  */
-      get skinColors(): $Field<"skinColors", Readonly<Array<string | null | undefined>> | null | undefined>  {
+      get skinColors(): $Field<"skinColors", Readonly<Array<string | null>> | null>  {
        return this.$_select("skinColors") as any
       }
 }
@@ -2948,7 +3147,7 @@ export class SpeciesConnection extends $Base<"SpeciesConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<SpeciesEdge>>(selectorFn: (s: SpeciesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<SpeciesEdge>>(selectorFn: (s: SpeciesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2956,7 +3155,7 @@ export class SpeciesConnection extends $Base<"SpeciesConnection"> {
 
         selection: selectorFn(new SpeciesEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -2972,7 +3171,7 @@ export class SpeciesConnection extends $Base<"SpeciesConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -2985,7 +3184,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      species<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"species", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -2993,7 +3192,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Species)
       };
-      return this.$_select("species", options) as any
+      return this.$_select("species", options as any) as any
     }
   
 
@@ -3004,7 +3203,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -3031,7 +3230,7 @@ export class SpeciesEdge extends $Base<"SpeciesEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Species>>(selectorFn: (s: Species) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3039,7 +3238,7 @@ export class SpeciesEdge extends $Base<"SpeciesEdge"> {
 
         selection: selectorFn(new Species)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -3058,7 +3257,7 @@ export class SpeciesFilmsConnection extends $Base<"SpeciesFilmsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<SpeciesFilmsEdge>>(selectorFn: (s: SpeciesFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<SpeciesFilmsEdge>>(selectorFn: (s: SpeciesFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3066,7 +3265,7 @@ export class SpeciesFilmsConnection extends $Base<"SpeciesFilmsConnection"> {
 
         selection: selectorFn(new SpeciesFilmsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -3079,7 +3278,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3087,7 +3286,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("films", options) as any
+      return this.$_select("films", options as any) as any
     }
   
 
@@ -3103,7 +3302,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -3114,7 +3313,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -3141,7 +3340,7 @@ export class SpeciesFilmsEdge extends $Base<"SpeciesFilmsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3149,7 +3348,7 @@ export class SpeciesFilmsEdge extends $Base<"SpeciesFilmsEdge"> {
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -3168,7 +3367,7 @@ export class SpeciesPeopleConnection extends $Base<"SpeciesPeopleConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<SpeciesPeopleEdge>>(selectorFn: (s: SpeciesPeopleEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<SpeciesPeopleEdge>>(selectorFn: (s: SpeciesPeopleEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3176,7 +3375,7 @@ export class SpeciesPeopleConnection extends $Base<"SpeciesPeopleConnection"> {
 
         selection: selectorFn(new SpeciesPeopleEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -3192,7 +3391,7 @@ export class SpeciesPeopleConnection extends $Base<"SpeciesPeopleConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -3205,7 +3404,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      people<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"people", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      people<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"people", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3213,7 +3412,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("people", options) as any
+      return this.$_select("people", options as any) as any
     }
   
 
@@ -3224,7 +3423,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -3251,7 +3450,7 @@ export class SpeciesPeopleEdge extends $Base<"SpeciesPeopleEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3259,7 +3458,7 @@ export class SpeciesPeopleEdge extends $Base<"SpeciesPeopleEdge"> {
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -3282,7 +3481,7 @@ within the Star Wars universe. This figure is only really useful for measuring
 the difference in speed of starships. We can assume it is similar to AU, the
 distance between our Sun (Sol) and Earth.
  */
-      get MGLT(): $Field<"MGLT", number | null | undefined>  {
+      get MGLT(): $Field<"MGLT", number | null>  {
        return this.$_select("MGLT") as any
       }
 
@@ -3290,7 +3489,7 @@ distance between our Sun (Sol) and Earth.
 /**
  * The maximum number of kilograms that this starship can transport.
  */
-      get cargoCapacity(): $Field<"cargoCapacity", number | null | undefined>  {
+      get cargoCapacity(): $Field<"cargoCapacity", number | null>  {
        return this.$_select("cargoCapacity") as any
       }
 
@@ -3299,7 +3498,7 @@ distance between our Sun (Sol) and Earth.
  * The maximum length of time that this starship can provide consumables for its
 entire crew without having to resupply.
  */
-      get consumables(): $Field<"consumables", string | null | undefined>  {
+      get consumables(): $Field<"consumables", string | null>  {
        return this.$_select("consumables") as any
       }
 
@@ -3307,7 +3506,7 @@ entire crew without having to resupply.
 /**
  * The cost of this starship new, in galactic credits.
  */
-      get costInCredits(): $Field<"costInCredits", number | null | undefined>  {
+      get costInCredits(): $Field<"costInCredits", number | null>  {
        return this.$_select("costInCredits") as any
       }
 
@@ -3315,7 +3514,7 @@ entire crew without having to resupply.
 /**
  * The ISO 8601 date format of the time that this resource was created.
  */
-      get created(): $Field<"created", string | null | undefined>  {
+      get created(): $Field<"created", string | null>  {
        return this.$_select("created") as any
       }
 
@@ -3323,7 +3522,7 @@ entire crew without having to resupply.
 /**
  * The number of personnel needed to run or pilot this starship.
  */
-      get crew(): $Field<"crew", string | null | undefined>  {
+      get crew(): $Field<"crew", string | null>  {
        return this.$_select("crew") as any
       }
 
@@ -3331,18 +3530,23 @@ entire crew without having to resupply.
 /**
  * The ISO 8601 date format of the time that this resource was edited.
  */
-      get edited(): $Field<"edited", string | null | undefined>  {
+      get edited(): $Field<"edited", string | null>  {
        return this.$_select("edited") as any
       }
 
       
       filmConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<StarshipFilmsConnection>>(args: Args, selectorFn: (s: StarshipFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<StarshipFilmsConnection>>(selectorFn: (s: StarshipFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<StarshipFilmsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: StarshipFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+filmConnection<Sel extends Selection<StarshipFilmsConnection>>(selectorFn: (s: StarshipFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 filmConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -3357,7 +3561,7 @@ last: "Int"
 
         selection: selectorFn(new StarshipFilmsConnection)
       };
-      return this.$_select("filmConnection", options) as any
+      return this.$_select("filmConnection", options as any) as any
     }
   
 
@@ -3365,7 +3569,7 @@ last: "Int"
 /**
  * The class of this starships hyperdrive.
  */
-      get hyperdriveRating(): $Field<"hyperdriveRating", number | null | undefined>  {
+      get hyperdriveRating(): $Field<"hyperdriveRating", number | null>  {
        return this.$_select("hyperdriveRating") as any
       }
 
@@ -3381,7 +3585,7 @@ last: "Int"
 /**
  * The length of this starship in meters.
  */
-      get length(): $Field<"length", number | null | undefined>  {
+      get length(): $Field<"length", number | null>  {
        return this.$_select("length") as any
       }
 
@@ -3389,7 +3593,7 @@ last: "Int"
 /**
  * The manufacturers of this starship.
  */
-      get manufacturers(): $Field<"manufacturers", Readonly<Array<string | null | undefined>> | null | undefined>  {
+      get manufacturers(): $Field<"manufacturers", Readonly<Array<string | null>> | null>  {
        return this.$_select("manufacturers") as any
       }
 
@@ -3398,7 +3602,7 @@ last: "Int"
  * The maximum speed of this starship in atmosphere. null if this starship is
 incapable of atmosphering flight.
  */
-      get maxAtmospheringSpeed(): $Field<"maxAtmospheringSpeed", number | null | undefined>  {
+      get maxAtmospheringSpeed(): $Field<"maxAtmospheringSpeed", number | null>  {
        return this.$_select("maxAtmospheringSpeed") as any
       }
 
@@ -3407,7 +3611,7 @@ incapable of atmosphering flight.
  * The model or official name of this starship. Such as "T-65 X-wing" or "DS-1
 Orbital Battle Station".
  */
-      get model(): $Field<"model", string | null | undefined>  {
+      get model(): $Field<"model", string | null>  {
        return this.$_select("model") as any
       }
 
@@ -3415,7 +3619,7 @@ Orbital Battle Station".
 /**
  * The name of this starship. The common name, such as "Death Star".
  */
-      get name(): $Field<"name", string | null | undefined>  {
+      get name(): $Field<"name", string | null>  {
        return this.$_select("name") as any
       }
 
@@ -3423,18 +3627,23 @@ Orbital Battle Station".
 /**
  * The number of non-essential people this starship can transport.
  */
-      get passengers(): $Field<"passengers", string | null | undefined>  {
+      get passengers(): $Field<"passengers", string | null>  {
        return this.$_select("passengers") as any
       }
 
       
       pilotConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<StarshipPilotsConnection>>(args: Args, selectorFn: (s: StarshipPilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-pilotConnection<Sel extends Selection<StarshipPilotsConnection>>(selectorFn: (s: StarshipPilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<StarshipPilotsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: StarshipPilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+pilotConnection<Sel extends Selection<StarshipPilotsConnection>>(selectorFn: (s: StarshipPilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 pilotConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -3449,7 +3658,7 @@ last: "Int"
 
         selection: selectorFn(new StarshipPilotsConnection)
       };
-      return this.$_select("pilotConnection", options) as any
+      return this.$_select("pilotConnection", options as any) as any
     }
   
 
@@ -3458,7 +3667,7 @@ last: "Int"
  * The class of this starship, such as "Starfighter" or "Deep Space Mobile
 Battlestation"
  */
-      get starshipClass(): $Field<"starshipClass", string | null | undefined>  {
+      get starshipClass(): $Field<"starshipClass", string | null>  {
        return this.$_select("starshipClass") as any
       }
 }
@@ -3477,7 +3686,7 @@ export class StarshipFilmsConnection extends $Base<"StarshipFilmsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<StarshipFilmsEdge>>(selectorFn: (s: StarshipFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<StarshipFilmsEdge>>(selectorFn: (s: StarshipFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3485,7 +3694,7 @@ export class StarshipFilmsConnection extends $Base<"StarshipFilmsConnection"> {
 
         selection: selectorFn(new StarshipFilmsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -3498,7 +3707,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3506,7 +3715,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("films", options) as any
+      return this.$_select("films", options as any) as any
     }
   
 
@@ -3522,7 +3731,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -3533,7 +3742,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -3560,7 +3769,7 @@ export class StarshipFilmsEdge extends $Base<"StarshipFilmsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3568,7 +3777,7 @@ export class StarshipFilmsEdge extends $Base<"StarshipFilmsEdge"> {
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -3587,7 +3796,7 @@ export class StarshipPilotsConnection extends $Base<"StarshipPilotsConnection"> 
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<StarshipPilotsEdge>>(selectorFn: (s: StarshipPilotsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<StarshipPilotsEdge>>(selectorFn: (s: StarshipPilotsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3595,7 +3804,7 @@ export class StarshipPilotsConnection extends $Base<"StarshipPilotsConnection"> 
 
         selection: selectorFn(new StarshipPilotsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -3611,7 +3820,7 @@ export class StarshipPilotsConnection extends $Base<"StarshipPilotsConnection"> 
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -3624,7 +3833,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      pilots<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"pilots", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      pilots<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"pilots", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3632,7 +3841,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("pilots", options) as any
+      return this.$_select("pilots", options as any) as any
     }
   
 
@@ -3643,7 +3852,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -3670,7 +3879,7 @@ export class StarshipPilotsEdge extends $Base<"StarshipPilotsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3678,7 +3887,7 @@ export class StarshipPilotsEdge extends $Base<"StarshipPilotsEdge"> {
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -3697,7 +3906,7 @@ export class StarshipsConnection extends $Base<"StarshipsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<StarshipsEdge>>(selectorFn: (s: StarshipsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<StarshipsEdge>>(selectorFn: (s: StarshipsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3705,7 +3914,7 @@ export class StarshipsConnection extends $Base<"StarshipsConnection"> {
 
         selection: selectorFn(new StarshipsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -3721,7 +3930,7 @@ export class StarshipsConnection extends $Base<"StarshipsConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -3734,7 +3943,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      starships<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starships", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      starships<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"starships", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3742,7 +3951,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Starship)
       };
-      return this.$_select("starships", options) as any
+      return this.$_select("starships", options as any) as any
     }
   
 
@@ -3753,7 +3962,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -3780,7 +3989,7 @@ export class StarshipsEdge extends $Base<"StarshipsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Starship>>(selectorFn: (s: Starship) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3788,7 +3997,7 @@ export class StarshipsEdge extends $Base<"StarshipsEdge"> {
 
         selection: selectorFn(new Starship)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -3807,7 +4016,7 @@ export class Vehicle extends $Base<"Vehicle"> {
 /**
  * The maximum number of kilograms that this vehicle can transport.
  */
-      get cargoCapacity(): $Field<"cargoCapacity", number | null | undefined>  {
+      get cargoCapacity(): $Field<"cargoCapacity", number | null>  {
        return this.$_select("cargoCapacity") as any
       }
 
@@ -3816,7 +4025,7 @@ export class Vehicle extends $Base<"Vehicle"> {
  * The maximum length of time that this vehicle can provide consumables for its
 entire crew without having to resupply.
  */
-      get consumables(): $Field<"consumables", string | null | undefined>  {
+      get consumables(): $Field<"consumables", string | null>  {
        return this.$_select("consumables") as any
       }
 
@@ -3824,7 +4033,7 @@ entire crew without having to resupply.
 /**
  * The cost of this vehicle new, in Galactic Credits.
  */
-      get costInCredits(): $Field<"costInCredits", number | null | undefined>  {
+      get costInCredits(): $Field<"costInCredits", number | null>  {
        return this.$_select("costInCredits") as any
       }
 
@@ -3832,7 +4041,7 @@ entire crew without having to resupply.
 /**
  * The ISO 8601 date format of the time that this resource was created.
  */
-      get created(): $Field<"created", string | null | undefined>  {
+      get created(): $Field<"created", string | null>  {
        return this.$_select("created") as any
       }
 
@@ -3840,7 +4049,7 @@ entire crew without having to resupply.
 /**
  * The number of personnel needed to run or pilot this vehicle.
  */
-      get crew(): $Field<"crew", string | null | undefined>  {
+      get crew(): $Field<"crew", string | null>  {
        return this.$_select("crew") as any
       }
 
@@ -3848,18 +4057,23 @@ entire crew without having to resupply.
 /**
  * The ISO 8601 date format of the time that this resource was edited.
  */
-      get edited(): $Field<"edited", string | null | undefined>  {
+      get edited(): $Field<"edited", string | null>  {
        return this.$_select("edited") as any
       }
 
       
       filmConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<VehicleFilmsConnection>>(args: Args, selectorFn: (s: VehicleFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-filmConnection<Sel extends Selection<VehicleFilmsConnection>>(selectorFn: (s: VehicleFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<VehicleFilmsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: VehicleFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+filmConnection<Sel extends Selection<VehicleFilmsConnection>>(selectorFn: (s: VehicleFilmsConnection) => [...Sel]):$Field<"filmConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 filmConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -3874,7 +4088,7 @@ last: "Int"
 
         selection: selectorFn(new VehicleFilmsConnection)
       };
-      return this.$_select("filmConnection", options) as any
+      return this.$_select("filmConnection", options as any) as any
     }
   
 
@@ -3890,7 +4104,7 @@ last: "Int"
 /**
  * The length of this vehicle in meters.
  */
-      get length(): $Field<"length", number | null | undefined>  {
+      get length(): $Field<"length", number | null>  {
        return this.$_select("length") as any
       }
 
@@ -3898,7 +4112,7 @@ last: "Int"
 /**
  * The manufacturers of this vehicle.
  */
-      get manufacturers(): $Field<"manufacturers", Readonly<Array<string | null | undefined>> | null | undefined>  {
+      get manufacturers(): $Field<"manufacturers", Readonly<Array<string | null>> | null>  {
        return this.$_select("manufacturers") as any
       }
 
@@ -3906,7 +4120,7 @@ last: "Int"
 /**
  * The maximum speed of this vehicle in atmosphere.
  */
-      get maxAtmospheringSpeed(): $Field<"maxAtmospheringSpeed", number | null | undefined>  {
+      get maxAtmospheringSpeed(): $Field<"maxAtmospheringSpeed", number | null>  {
        return this.$_select("maxAtmospheringSpeed") as any
       }
 
@@ -3915,7 +4129,7 @@ last: "Int"
  * The model or official name of this vehicle. Such as "All-Terrain Attack
 Transport".
  */
-      get model(): $Field<"model", string | null | undefined>  {
+      get model(): $Field<"model", string | null>  {
        return this.$_select("model") as any
       }
 
@@ -3924,7 +4138,7 @@ Transport".
  * The name of this vehicle. The common name, such as "Sand Crawler" or "Speeder
 bike".
  */
-      get name(): $Field<"name", string | null | undefined>  {
+      get name(): $Field<"name", string | null>  {
        return this.$_select("name") as any
       }
 
@@ -3932,18 +4146,23 @@ bike".
 /**
  * The number of non-essential people this vehicle can transport.
  */
-      get passengers(): $Field<"passengers", string | null | undefined>  {
+      get passengers(): $Field<"passengers", string | null>  {
        return this.$_select("passengers") as any
       }
 
       
       pilotConnection<Args extends VariabledInput<{
-        after?: string | null | undefined
-first?: number | null | undefined
-before?: string | null | undefined
-last?: number | null | undefined,
-      }>,Sel extends Selection<VehiclePilotsConnection>>(args: Args, selectorFn: (s: VehiclePilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-pilotConnection<Sel extends Selection<VehiclePilotsConnection>>(selectorFn: (s: VehiclePilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>,Sel extends Selection<VehiclePilotsConnection>>(args: ExactArgNames<Args, {
+        after?: string | null
+first?: number | null
+before?: string | null
+last?: number | null,
+      }>, selectorFn: (s: VehiclePilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+pilotConnection<Sel extends Selection<VehiclePilotsConnection>>(selectorFn: (s: VehiclePilotsConnection) => [...Sel]):$Field<"pilotConnection", GetOutput<Sel> | null , GetVariables<Sel>>
 pilotConnection(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -3958,7 +4177,7 @@ last: "Int"
 
         selection: selectorFn(new VehiclePilotsConnection)
       };
-      return this.$_select("pilotConnection", options) as any
+      return this.$_select("pilotConnection", options as any) as any
     }
   
 
@@ -3966,7 +4185,7 @@ last: "Int"
 /**
  * The class of this vehicle, such as "Wheeled" or "Repulsorcraft".
  */
-      get vehicleClass(): $Field<"vehicleClass", string | null | undefined>  {
+      get vehicleClass(): $Field<"vehicleClass", string | null>  {
        return this.$_select("vehicleClass") as any
       }
 }
@@ -3985,7 +4204,7 @@ export class VehicleFilmsConnection extends $Base<"VehicleFilmsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<VehicleFilmsEdge>>(selectorFn: (s: VehicleFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<VehicleFilmsEdge>>(selectorFn: (s: VehicleFilmsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -3993,7 +4212,7 @@ export class VehicleFilmsConnection extends $Base<"VehicleFilmsConnection"> {
 
         selection: selectorFn(new VehicleFilmsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -4006,7 +4225,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      films<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"films", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -4014,7 +4233,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("films", options) as any
+      return this.$_select("films", options as any) as any
     }
   
 
@@ -4030,7 +4249,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -4041,7 +4260,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -4068,7 +4287,7 @@ export class VehicleFilmsEdge extends $Base<"VehicleFilmsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Film>>(selectorFn: (s: Film) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -4076,7 +4295,7 @@ export class VehicleFilmsEdge extends $Base<"VehicleFilmsEdge"> {
 
         selection: selectorFn(new Film)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -4095,7 +4314,7 @@ export class VehiclePilotsConnection extends $Base<"VehiclePilotsConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<VehiclePilotsEdge>>(selectorFn: (s: VehiclePilotsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<VehiclePilotsEdge>>(selectorFn: (s: VehiclePilotsEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -4103,7 +4322,7 @@ export class VehiclePilotsConnection extends $Base<"VehiclePilotsConnection"> {
 
         selection: selectorFn(new VehiclePilotsEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -4119,7 +4338,7 @@ export class VehiclePilotsConnection extends $Base<"VehiclePilotsConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -4132,7 +4351,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      pilots<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"pilots", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      pilots<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"pilots", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -4140,7 +4359,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("pilots", options) as any
+      return this.$_select("pilots", options as any) as any
     }
   
 
@@ -4151,7 +4370,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 }
@@ -4178,7 +4397,7 @@ export class VehiclePilotsEdge extends $Base<"VehiclePilotsEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Person>>(selectorFn: (s: Person) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -4186,7 +4405,7 @@ export class VehiclePilotsEdge extends $Base<"VehiclePilotsEdge"> {
 
         selection: selectorFn(new Person)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }
@@ -4205,7 +4424,7 @@ export class VehiclesConnection extends $Base<"VehiclesConnection"> {
 /**
  * A list of edges.
  */
-      edges<Sel extends Selection<VehiclesEdge>>(selectorFn: (s: VehiclesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      edges<Sel extends Selection<VehiclesEdge>>(selectorFn: (s: VehiclesEdge) => [...Sel]):$Field<"edges", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -4213,7 +4432,7 @@ export class VehiclesConnection extends $Base<"VehiclesConnection"> {
 
         selection: selectorFn(new VehiclesEdge)
       };
-      return this.$_select("edges", options) as any
+      return this.$_select("edges", options as any) as any
     }
   
 
@@ -4229,7 +4448,7 @@ export class VehiclesConnection extends $Base<"VehiclesConnection"> {
 
         selection: selectorFn(new PageInfo)
       };
-      return this.$_select("pageInfo", options) as any
+      return this.$_select("pageInfo", options as any) as any
     }
   
 
@@ -4240,7 +4459,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.
  */
-      get totalCount(): $Field<"totalCount", number | null | undefined>  {
+      get totalCount(): $Field<"totalCount", number | null>  {
        return this.$_select("totalCount") as any
       }
 
@@ -4253,7 +4472,7 @@ instead. Note that when clients like Relay need to fetch the "cursor" field on
 the edge to enable efficient pagination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.
  */
-      vehicles<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicles", Array<GetOutput<Sel> | undefined> | undefined , GetVariables<Sel>> {
+      vehicles<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"vehicles", Array<GetOutput<Sel> | null> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -4261,7 +4480,7 @@ full "{ edges { node } }" version should be used instead.
 
         selection: selectorFn(new Vehicle)
       };
-      return this.$_select("vehicles", options) as any
+      return this.$_select("vehicles", options as any) as any
     }
   
 }
@@ -4288,7 +4507,7 @@ export class VehiclesEdge extends $Base<"VehiclesEdge"> {
 /**
  * The item at the end of the edge
  */
-      node<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"node", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      node<Sel extends Selection<Vehicle>>(selectorFn: (s: Vehicle) => [...Sel]):$Field<"node", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -4296,7 +4515,7 @@ export class VehiclesEdge extends $Base<"VehiclesEdge"> {
 
         selection: selectorFn(new Vehicle)
       };
-      return this.$_select("node", options) as any
+      return this.$_select("node", options as any) as any
     }
   
 }

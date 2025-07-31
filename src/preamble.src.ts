@@ -262,14 +262,15 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
     argVarType?: ArgVarType
   ): string {
     switch (typeof args) {
-      case 'string':
+      case 'string': {
         const cleanType = argVarType!.type
         if ($Enums.has(cleanType!)) return args
         else return JSON.stringify(args)
+      }
       case 'number':
       case 'boolean':
         return JSON.stringify(args)
-      default:
+      default: {
         if (args == null) return 'null'
         if (VariableName in (args as any)) {
           if (!argVarType)
@@ -298,6 +299,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
             })
             .join(',')
         )
+      }
     }
   }
 

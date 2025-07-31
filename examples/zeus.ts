@@ -8,6 +8,10 @@ import { gql } from 'graphql-tag'
 
 const VariableName = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd8'
 
+const ScalarBrandingField = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd9'
+
+type CustomScalar<T> = { [ScalarBrandingField]: T }
+
 class Variable<T, Name extends string> {
   private [VariableName]: Name
   // @ts-ignore
@@ -19,18 +23,40 @@ class Variable<T, Name extends string> {
   }
 }
 
-type ArrayInput<I> = [I] extends [$Atomic | null | undefined]
-  ? never
-  : ReadonlyArray<VariabledInput<I>>
+type ArrayInput<I> = [I] extends [$Atomic] ? never : ReadonlyArray<VariabledInput<I>>
+
+type AllowedInlineScalars<S> = S extends string | number ? S : never
+
+export type UnwrapCustomScalars<T> = T extends CustomScalar<infer S>
+  ? S
+  : T extends ReadonlyArray<infer I>
+  ? ReadonlyArray<UnwrapCustomScalars<I>>
+  : T extends Record<string, any>
+  ? { [K in keyof T]: UnwrapCustomScalars<T[K]> }
+  : T
+
+type VariableWithoutScalars<T, Str extends string> = Variable<UnwrapCustomScalars<T>, Str>
 
 // the array wrapper prevents distributive conditional types
 // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
-type VariabledInput<T> = [T] extends [$Atomic | null | undefined]
+type VariabledInput<T> = [T] extends [CustomScalar<infer S> | null | undefined]
+  ? // scalars only support variable input
+    Variable<S | null | undefined, any> | AllowedInlineScalars<S> | null | undefined
+  : [T] extends [CustomScalar<infer S>]
+  ? Variable<S, any> | AllowedInlineScalars<S>
+  : [T] extends [$Atomic]
   ? Variable<T, any> | T
   : T extends ReadonlyArray<infer I>
-  ? Variable<T, any> | T | ArrayInput<I>
+  ? VariableWithoutScalars<T, any> | T | ArrayInput<I>
+  : T extends Record<string, any> | null | undefined
+  ?
+      | VariableWithoutScalars<T | null | undefined, any>
+      | null
+      | undefined
+      | { [K in keyof T]: VariabledInput<T[K]> }
+      | T
   : T extends Record<string, any>
-  ? Variable<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
+  ? VariableWithoutScalars<T, any> | { [K in keyof T]: VariabledInput<T[K]> } | T
   : never
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
@@ -143,27 +169,36 @@ type NeverNever<T> = [T] extends [never] ? {} : T
 
 type Simplify<T> = { [K in keyof T]: T[K] } & {}
 
+type LeafType<T> = T extends CustomScalar<infer S> ? S : T
+
 export type GetOutput<X extends Selection<any>> = Simplify<
   UnionToIntersection<
     {
       [I in keyof X]: X[I] extends $Field<infer Name, infer Type, any>
-        ? { [K in Name]: Type }
+        ? { [K in Name]: LeafType<Type> }
         : never
     }[keyof X & number]
   > &
     NeverNever<
       {
-        [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? Type : never
+        [I in keyof X]: X[I] extends $UnionSelection<infer Type, any> ? LeafType<Type> : never
       }[keyof X & number]
     >
 >
 
-type PossiblyOptionalVar<VName extends string, VType> = undefined extends VType
+type PossiblyOptionalVar<VName extends string, VType> = null extends VType
   ? { [key in VName]?: VType }
   : { [key in VName]: VType }
 
 type ExtractInputVariables<Inputs> = Inputs extends Variable<infer VType, infer VName>
   ? PossiblyOptionalVar<VName, VType>
+  : // Avoid generating an index signature for possibly undefined or null inputs.
+  // The compiler incorrectly infers null or undefined, and we must force access the Inputs
+  // type to convince the compiler its "never", while still retaining {} as the result
+  // for null and undefined cases
+  // Works around issue 79
+  Inputs extends null | undefined
+  ? { [K in keyof Inputs]: Inputs[K] }
   : Inputs extends $Atomic
   ? {}
   : Inputs extends any[] | readonly any[]
@@ -224,17 +259,19 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
     argVarType?: ArgVarType
   ): string {
     switch (typeof args) {
-      case 'string':
+      case 'string': {
         const cleanType = argVarType!.type
         if ($Enums.has(cleanType!)) return args
         else return JSON.stringify(args)
+      }
       case 'number':
       case 'boolean':
         return JSON.stringify(args)
-      default:
+      default: {
         if (args == null) return 'null'
         if (VariableName in (args as any)) {
-          if (!argVarType) throw new Error('Cannot use variabe as sole unnamed field argument')
+          if (!argVarType)
+            throw new globalThis.Error('Cannot use variabe as sole unnamed field argument')
           const variable = args as Variable<any, any>
           const argVarName = variable[VariableName]
           variables.set(argVarName, { type: argVarType, variable: variable })
@@ -248,7 +285,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
             .map(([key, val]) => {
               let argTypeForKey = argTypes[key]
               if (!argTypeForKey) {
-                throw new Error(`Argument type for ${key} not found`)
+                throw new globalThis.Error(`Argument type for ${key} not found`)
               }
               const cleanType = argTypeForKey.replace('[', '').replace(']', '').replace(/!/g, '')
               return (
@@ -259,6 +296,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
             })
             .join(',')
         )
+      }
     }
   }
 
@@ -289,7 +327,7 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
 
       return retVal + ' '
     } else {
-      throw new Error('Uknown field kind')
+      throw new globalThis.Error('Uknown field kind')
     }
   }
 
@@ -323,7 +361,11 @@ function fieldToQuery(prefix: string, field: $Field<any, any, any>) {
   return ret
 }
 
-export type OutputTypeOf<T> = T extends $Base<any>
+export type OutputTypeOf<T> = T extends $Interface<infer Subtypes, any>
+  ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
+  : T extends $Union<infer Subtypes, any>
+  ? { [K in keyof Subtypes]: OutputTypeOf<Subtypes[K]> }[keyof Subtypes]
+  : T extends $Base<any>
   ? { [K in keyof T]?: OutputTypeOf<T[K]> }
   : [T] extends [$Field<any, infer FieldType, any>]
   ? FieldType
@@ -353,7 +395,54 @@ export function fragment<T, Sel extends Selection<T>>(
   return selectFn(new GQLType())
 }
 
-type $Atomic = string | SpecialSkills | number | boolean
+type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends () => infer R
+  ? R
+  : never
+
+// TS4.0+
+type Push<T extends any[], V> = [...T, V]
+
+// TS4.1+
+type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = true extends N
+  ? []
+  : Push<TuplifyUnion<Exclude<T, L>>, L>
+
+type AllFieldProperties<I> = {
+  [K in keyof I]: I[K] extends $Field<infer Name, infer Type, any> ? $Field<Name, Type, any> : never
+}
+
+type ValueOf<T> = T[keyof T]
+
+export type AllFields<T> = TuplifyUnion<ValueOf<AllFieldProperties<T>>>
+
+export function all<I extends $Base<any>>(instance: I) {
+  const prototype = Object.getPrototypeOf(instance)
+  const allFields = Object.getOwnPropertyNames(prototype)
+    .map(k => prototype[k])
+    .filter(o => o?.kind === 'field')
+    .map(o => o?.name) as (keyof typeof instance)[]
+  return allFields.map(fieldName => instance?.[fieldName]) as any as AllFields<I>
+}
+
+// We use a dummy conditional type that involves GenericType to defer the compiler's inference of
+// any possible variables nested in this type. This addresses a problem where variables are
+// inferred with type unknown
+// @ts-ignore
+type ExactArgNames<GenericType, Constraint> = GenericType extends never
+  ? never
+  : [Constraint] extends [$Atomic | CustomScalar<any>]
+  ? GenericType
+  : Constraint extends ReadonlyArray<infer InnerConstraint>
+  ? GenericType extends ReadonlyArray<infer Inner>
+    ? ReadonlyArray<ExactArgNames<Inner, InnerConstraint>>
+    : GenericType
+  : GenericType & {
+      [Key in keyof GenericType]: Key extends keyof Constraint
+        ? ExactArgNames<GenericType[Key], Constraint[Key]>
+        : never
+    }
+
+type $Atomic = SpecialSkills | number | string | boolean | null | undefined
 
 let $Enums = new Set<string>(["SpecialSkills"])
 
@@ -370,9 +459,11 @@ export class Query extends $Base<"Query"> {
   
       
       cardById<Args extends VariabledInput<{
-        cardId?: string | null | undefined,
-      }>,Sel extends Selection<Card>>(args: Args, selectorFn: (s: Card) => [...Sel]):$Field<"cardById", GetOutput<Sel> | undefined , GetVariables<Sel, Args>>
-cardById<Sel extends Selection<Card>>(selectorFn: (s: Card) => [...Sel]):$Field<"cardById", GetOutput<Sel> | undefined , GetVariables<Sel>>
+        cardId?: string | null,
+      }>,Sel extends Selection<Card>>(args: ExactArgNames<Args, {
+        cardId?: string | null,
+      }>, selectorFn: (s: Card) => [...Sel]):$Field<"cardById", GetOutput<Sel> | null , GetVariables<Sel, Args>>
+cardById<Sel extends Selection<Card>>(selectorFn: (s: Card) => [...Sel]):$Field<"cardById", GetOutput<Sel> | null , GetVariables<Sel>>
 cardById(arg1: any, arg2?: any) {
       const { args, selectorFn } = !arg2 ? { args: {}, selectorFn: arg1 } : { args: arg1, selectorFn: arg2 };
 
@@ -384,7 +475,7 @@ cardById(arg1: any, arg2?: any) {
 
         selection: selectorFn(new Card)
       };
-      return this.$_select("cardById", options) as any
+      return this.$_select("cardById", options as any) as any
     }
   
 
@@ -400,7 +491,7 @@ cardById(arg1: any, arg2?: any) {
 
         selection: selectorFn(new Card)
       };
-      return this.$_select("drawCard", options) as any
+      return this.$_select("drawCard", options as any) as any
     }
   
 
@@ -413,7 +504,7 @@ cardById(arg1: any, arg2?: any) {
 
         selection: selectorFn(new ChangeCard)
       };
-      return this.$_select("drawChangeCard", options) as any
+      return this.$_select("drawChangeCard", options as any) as any
     }
   
 
@@ -429,12 +520,12 @@ cardById(arg1: any, arg2?: any) {
 
         selection: selectorFn(new Card)
       };
-      return this.$_select("listCards", options) as any
+      return this.$_select("listCards", options as any) as any
     }
   
 
       
-      myStacks<Sel extends Selection<CardStack>>(selectorFn: (s: CardStack) => [...Sel]):$Field<"myStacks", Array<GetOutput<Sel>> | undefined , GetVariables<Sel>> {
+      myStacks<Sel extends Selection<CardStack>>(selectorFn: (s: CardStack) => [...Sel]):$Field<"myStacks", Array<GetOutput<Sel>> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -442,7 +533,7 @@ cardById(arg1: any, arg2?: any) {
 
         selection: selectorFn(new CardStack)
       };
-      return this.$_select("myStacks", options) as any
+      return this.$_select("myStacks", options as any) as any
     }
   
 
@@ -455,7 +546,7 @@ cardById(arg1: any, arg2?: any) {
 
         selection: selectorFn(new Nameable)
       };
-      return this.$_select("nameables", options) as any
+      return this.$_select("nameables", options as any) as any
     }
   
 }
@@ -474,7 +565,7 @@ export class CardStack extends $Base<"CardStack"> {
 /**
  * The list of cards
  */
-      cards<Sel extends Selection<Card>>(selectorFn: (s: Card) => [...Sel]):$Field<"cards", Array<GetOutput<Sel>> | undefined , GetVariables<Sel>> {
+      cards<Sel extends Selection<Card>>(selectorFn: (s: Card) => [...Sel]):$Field<"cards", Array<GetOutput<Sel>> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -482,7 +573,7 @@ export class CardStack extends $Base<"CardStack"> {
 
         selection: selectorFn(new Card)
       };
-      return this.$_select("cards", options) as any
+      return this.$_select("cards", options as any) as any
     }
   
 
@@ -586,7 +677,7 @@ export class Card extends $Base<"Card"> {
 /**
  * <div>How many children the greek god had</div>
  */
-      get Children(): $Field<"Children", number | null | undefined>  {
+      get Children(): $Field<"Children", number | null>  {
        return this.$_select("Children") as any
       }
 
@@ -604,7 +695,9 @@ export class Card extends $Base<"Card"> {
  */
       attack<Args extends VariabledInput<{
         cardID: Readonly<Array<string>>,
-      }>,Sel extends Selection<Card>>(args: Args, selectorFn: (s: Card) => [...Sel]):$Field<"attack", Array<GetOutput<Sel>> | undefined , GetVariables<Sel, Args>> {
+      }>,Sel extends Selection<Card>>(args: ExactArgNames<Args, {
+        cardID: Readonly<Array<string>>,
+      }>, selectorFn: (s: Card) => [...Sel]):$Field<"attack", Array<GetOutput<Sel>> | null , GetVariables<Sel, Args>> {
       
       const options = {
         argTypes: {
@@ -614,7 +707,7 @@ export class Card extends $Base<"Card"> {
 
         selection: selectorFn(new Card)
       };
-      return this.$_select("attack", options) as any
+      return this.$_select("attack", options as any) as any
     }
   
 
@@ -622,7 +715,7 @@ export class Card extends $Base<"Card"> {
 /**
  * Put your description here
  */
-      cardImage<Sel extends Selection<S3Object>>(selectorFn: (s: S3Object) => [...Sel]):$Field<"cardImage", GetOutput<Sel> | undefined , GetVariables<Sel>> {
+      cardImage<Sel extends Selection<S3Object>>(selectorFn: (s: S3Object) => [...Sel]):$Field<"cardImage", GetOutput<Sel> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -630,7 +723,7 @@ export class Card extends $Base<"Card"> {
 
         selection: selectorFn(new S3Object)
       };
-      return this.$_select("cardImage", options) as any
+      return this.$_select("cardImage", options as any) as any
     }
   
 
@@ -653,7 +746,7 @@ export class Card extends $Base<"Card"> {
       }
 
       
-      get info(): $Field<"info", string>  {
+      get info(): $Field<"info", JSON>  {
        return this.$_select("info") as any
       }
 
@@ -666,7 +759,7 @@ export class Card extends $Base<"Card"> {
       }
 
       
-      get skills(): $Field<"skills", Readonly<Array<SpecialSkills>> | null | undefined>  {
+      get skills(): $Field<"skills", Readonly<Array<SpecialSkills>> | null>  {
        return this.$_select("skills") as any
       }
 }
@@ -684,7 +777,9 @@ export class Mutation extends $Base<"Mutation"> {
  */
       addCard<Args extends VariabledInput<{
         card: createCard,
-      }>,Sel extends Selection<Card>>(args: Args, selectorFn: (s: Card) => [...Sel]):$Field<"addCard", GetOutput<Sel> , GetVariables<Sel, Args>> {
+      }>,Sel extends Selection<Card>>(args: ExactArgNames<Args, {
+        card: createCard,
+      }>, selectorFn: (s: Card) => [...Sel]):$Field<"addCard", GetOutput<Sel> , GetVariables<Sel, Args>> {
       
       const options = {
         argTypes: {
@@ -694,7 +789,7 @@ export class Mutation extends $Base<"Mutation"> {
 
         selection: selectorFn(new Card)
       };
-      return this.$_select("addCard", options) as any
+      return this.$_select("addCard", options as any) as any
     }
   
 }
@@ -707,7 +802,7 @@ export class Subscription extends $Base<"Subscription"> {
 
   
       
-      deck<Sel extends Selection<Card>>(selectorFn: (s: Card) => [...Sel]):$Field<"deck", Array<GetOutput<Sel>> | undefined , GetVariables<Sel>> {
+      deck<Sel extends Selection<Card>>(selectorFn: (s: Card) => [...Sel]):$Field<"deck", Array<GetOutput<Sel>> | null , GetVariables<Sel>> {
       
       const options = {
         
@@ -715,7 +810,7 @@ export class Subscription extends $Base<"Subscription"> {
 
         selection: selectorFn(new Card)
       };
-      return this.$_select("deck", options) as any
+      return this.$_select("deck", options as any) as any
     }
   
 }
@@ -762,29 +857,29 @@ export class EffectCard extends $Base<"EffectCard"> {
  */
 export type createCard = {
   Attack: number,
-Children?: number | null | undefined,
+Children?: number | null,
 Defense: number,
-conditions?: ConditionType | null | undefined,
+conditions?: ConditionType | null,
 description: string,
 name: string,
-skills?: Readonly<Array<SpecialSkills>> | null | undefined
+skills?: Readonly<Array<SpecialSkills>> | null
 }
     
 
 
 export type ConditionType = {
-  _and?: Readonly<Array<ConditionType | null | undefined>> | null | undefined,
-_or?: Readonly<Array<ConditionType | null | undefined>> | null | undefined,
-field1?: CheckType | null | undefined,
-field2?: CheckType | null | undefined
+  _and?: Readonly<Array<ConditionType | null>> | null,
+_or?: Readonly<Array<ConditionType | null>> | null,
+field1?: CheckType | null,
+field2?: CheckType | null
 }
     
 
 
 export type CheckType = {
-  eq?: number | null | undefined,
-gt?: number | null | undefined,
-lt?: number | null | undefined
+  eq?: number | null,
+gt?: number | null,
+lt?: number | null
 }
     
 
