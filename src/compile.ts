@@ -1,9 +1,9 @@
 import * as gq from 'graphql'
-import { Preamble, ExactArgNames } from './preamble.lib'
-import { postamble } from './postamble'
-import { UserFacingError } from './user-error'
-import { getScalars } from './scalars'
-import type { Options } from './compile-options'
+import { Preamble, ExactArgNames } from './preamble.lib.ts'
+import { postamble } from './postamble.ts'
+import { UserFacingError } from './user-error.ts'
+import { getScalars } from './scalars.ts'
+import type { Options } from './compile-options.ts'
 
 type SupportedExtensibleNodes =
   | gq.InterfaceTypeDefinitionNode

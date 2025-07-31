@@ -1,5 +1,5 @@
-import t from 'tap'
-import { getScalars } from './scalars'
+import { assertEquals } from "@std/assert";
+import { getScalars } from './scalars.ts'
 
 let scalarMapPairs = [
   ['Empty', ''],
@@ -9,38 +9,38 @@ let scalarMapPairs = [
   ['.+', 'unknown'],
 ] as [string, string][]
 
-t.test('plain string scalar', async t => {
+Deno.test('plain string scalar', () => {
   let scalarInfo = getScalars(['MyTest'], scalarMapPairs)
-  t.same(scalarInfo.map, [['MyTest', 'string']])
-  t.same(scalarInfo.imports, [])
+  assertEquals(scalarInfo.map, [['MyTest', 'string']])
+  assertEquals(scalarInfo.imports, [])
 })
 
-t.test('must not match subpattern', async t => {
+Deno.test('must not match subpattern', () => {
   let scalarInfo = getScalars(['MyTest2'], scalarMapPairs)
-  t.same(scalarInfo.map, [['MyTest2', 'unknown']])
-  t.same(scalarInfo.imports, [])
+  assertEquals(scalarInfo.map, [['MyTest2', 'unknown']])
+  assertEquals(scalarInfo.imports, [])
 })
 
-t.test('scalar with import', async t => {
+Deno.test('scalar with import', () => {
   let scalarInfo = getScalars(['Another'], scalarMapPairs)
-  t.same(scalarInfo.map, [['Another', 'Another']])
-  t.same(scalarInfo.imports, [`import type { TypeName as Another } from './path/to/x'`])
+  assertEquals(scalarInfo.map, [['Another', 'Another']])
+  assertEquals(scalarInfo.imports, [`import type { TypeName as Another } from './path/to/x'`])
 })
 
-t.test('scalar with import and pattern', async t => {
+Deno.test('scalar with import and pattern', () => {
   let scalarInfo = getScalars(['JSONTextDocument'], scalarMapPairs)
-  t.same(scalarInfo.map, [['JSONTextDocument', 'JSONTextDocument']])
-  t.same(scalarInfo.imports, [`import type { JSONTextDocument } from './jsons'`])
+  assertEquals(scalarInfo.map, [['JSONTextDocument', 'JSONTextDocument']])
+  assertEquals(scalarInfo.imports, [`import type { JSONTextDocument } from './jsons'`])
 })
 
-t.test('scalar not matching any other pattern', async t => {
+Deno.test('scalar not matching any other pattern', () => {
   let scalarInfo = getScalars(['Blaha'], scalarMapPairs)
-  t.same(scalarInfo.map, [['Blaha', 'unknown']])
-  t.same(scalarInfo.imports, [])
+  assertEquals(scalarInfo.map, [['Blaha', 'unknown']])
+  assertEquals(scalarInfo.imports, [])
 })
 
-t.test('replacement and rename patterns working', async t => {
+Deno.test('replacement and rename patterns working', () => {
   let scalarInfo = getScalars(['MyScalar'], [['(.+)', './scalars#Rename$1']])
-  t.same(scalarInfo.map, [['MyScalar', 'MyScalar']])
-  t.same(scalarInfo.imports, [`import type { RenameMyScalar as MyScalar } from './scalars'`])
+  assertEquals(scalarInfo.map, [['MyScalar', 'MyScalar']])
+  assertEquals(scalarInfo.imports, [`import type { RenameMyScalar as MyScalar } from './scalars'`])
 })

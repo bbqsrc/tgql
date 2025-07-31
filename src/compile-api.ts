@@ -1,11 +1,10 @@
 import * as gq from 'graphql'
-import * as fs from 'fs/promises'
 import { request } from 'undici'
-import { glob } from 'glob'
+import { expandGlob } from "@std/fs";
 
-import { UserFacingError } from './user-error'
-import { compileSchemaDefinitions } from './compile'
-import type { Args, Options } from './compile-options'
+import { UserFacingError } from './user-error.ts'
+import { compileSchemaDefinitions } from './compile.ts'
+import type { Args, Options } from './compile-options.ts'
 
 /**
  * Compiles the given schema file or URL and writes to the specified output file
@@ -22,7 +21,7 @@ export async function compile(args: Args) {
   if (args.output === '') {
     console.log(outputScript)
   } else {
-    await fs.writeFile(args.output, outputScript)
+    await Deno.writeTextFile(args.output, outputScript)
   }
 }
 
@@ -53,13 +52,24 @@ async function fetchOrRead(args: Args) {
       loadedSchemas.push(gq.printSchema(gq.buildClientSchema(body.data)))
     } else if (args.schema === '') {
       let res = ''
-      for await (let data of process.stdin) {
-        res += String(data)
+      const reader = Deno.stdin.readable.getReader();
+      const decoder = new TextDecoder();
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res += decoder.decode(value);
+        }
+      } finally {
+        reader.releaseLock();
       }
       loadedSchemas.push(res)
     } else {
-      for (let fileName of glob.sync(schemaSpec)) {
-        loadedSchemas.push(await fs.readFile(fileName, 'utf8'))
+      for await (let file of expandGlob(schemaSpec)) {
+        if (file.isFile) {
+          loadedSchemas.push(await Deno.readTextFile(file.path))
+        }
       }
     }
   }

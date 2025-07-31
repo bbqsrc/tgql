@@ -1,5 +1,5 @@
-import t from 'tap'
-import { compileSchemas } from './compile-api'
+import { assertEquals, assertMatch } from "@std/assert";
+import { compileSchemas } from './compile-api.ts'
 
 // ------------------------------------------------------------------------------
 
@@ -21,15 +21,15 @@ extend type Query {
 }
 `
 
-t.test('works with extended schemas', async t => {
+Deno.test('works with extended schemas', () => {
   let code = compileSchemas([s1, s2])
 
   let res = code.split('\n').filter(l => l.includes('this.$_select'))
 
   // Sorted alphabetically and contains only one occurrence of "a"
-  t.match(res[0], '"a"')
-  t.match(res[1], '"other"')
-  t.match(res[2], '"test"')
+  assertMatch(res[0], /"a"/)
+  assertMatch(res[1], /"other"/)
+  assertMatch(res[2], /"test"/)
 })
 
 // ------------------------------------------------------------------------------
@@ -42,14 +42,14 @@ type Query {
   test(s: String): A
 }
 `
-t.test('works with custom scalars', async t => {
+Deno.test('works with custom scalars', () => {
   let res = compileSchemas([schemaScalars], {
     scalars: [['(.+)', './scalars#$1']],
   })
 
   let importList = res.split('\n').filter(l => l.startsWith('import') && l.includes('scalars'))
 
-  t.same(importList, [`import type { A } from './scalars'`, `import type { B } from './scalars'`])
+  assertEquals(importList, [`import type { A } from './scalars'`, `import type { B } from './scalars'`])
 })
 
 // ------------------------------------------------------------------------------
@@ -66,7 +66,7 @@ type Query {
 }
 `
 
-t.test('does not add typename to input types', async t => {
+Deno.test('does not add typename to input types', () => {
   let res = compileSchemas([schemaInputTypes], {
     includeTypename: true,
   })
@@ -77,7 +77,7 @@ t.test('does not add typename to input types', async t => {
   let lastTypeLine = lines.slice(firstTypeLine).findIndex(l => l === '}')
   let typeLines = lines.slice(firstTypeLine + 1, firstTypeLine + lastTypeLine)
   let typenameLine = typeLines.find(l => l.includes('__typename'))
-  t.same(typenameLine, null, 'should not contian __typename')
+  assertEquals(typenameLine, undefined, 'should not contain __typename')
   // let inputType = res
 
   // console.log(res)

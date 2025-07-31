@@ -1,0 +1,53 @@
+{
+  "name": "@necessary/tgql",
+  "version": "0.0.0-development",
+  "description": "TypeScript code generator that creates type-safe GraphQL query builders from GraphQL schemas",
+  "license": "MIT",
+  "repository": "github:typed-graphql-builder/typed-graphql-builder",
+  "keywords": ["graphql", "typescript", "codegen", "type-safe", "query-builder"],
+  "exports": {
+    ".": "./src/compile.ts",
+    "./cli": "./src/cli.ts"
+  },
+  "tasks": {
+    "build": "echo 'No build step needed for Deno'",
+    "test": "deno test --allow-read --allow-net --allow-env --allow-write --allow-run --coverage",
+    "test:watch": "deno test --allow-read --allow-net --allow-env --allow-write --allow-run --watch",
+    "regenerate": "deno task regenerate:big-schema && deno task regenerate:small-schema && deno task regenerate:sw-schema && deno task regenerate:country-schema",
+    "regenerate:big-schema": "deno run --allow-read --allow-write --allow-net --allow-env src/cli.ts --schema examples/x.graphql --output examples/x.ts",
+    "regenerate:small-schema": "deno run --allow-read --allow-write --allow-net --allow-env src/cli.ts --schema examples/zeus.graphql --output examples/zeus.ts",
+    "regenerate:sw-schema": "deno run --allow-read --allow-write --allow-net --allow-env src/cli.ts --schema examples/schema-sw.graphql --output examples/api-sw.ts",
+    "regenerate:country-schema": "deno run --allow-read --allow-write --allow-net --allow-env src/cli.ts --schema examples/countries-schema.graphql --output examples/countries-schema.ts"
+  },
+  "compilerOptions": {
+    "lib": ["dom", "deno.ns"],
+    "strict": true
+  },
+  "test": {
+    "include": ["src/**/*.test.ts", "test/**/*.test.ts"]
+  },
+  "permissions": {
+    "read": true,
+    "write": true,
+    "net": true,
+    "env": true,
+    "run": ["deno"]
+  },
+  "publish": {
+    "exclude": [
+      "examples/",
+      "test/",
+      "dist/",
+      "node_modules/",
+      ".parcel-cache/",
+      "coverage/",
+      "*.test.ts",
+      "*.spec.ts"
+    ]
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.13",
+    "@std/fs": "jsr:@std/fs@^1.0.19",
+    "@std/path": "jsr:@std/path@^1.1.1"
+  }
+}

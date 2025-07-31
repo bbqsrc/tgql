@@ -1,11 +1,11 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S deno run --allow-read --allow-write --allow-net
 
-import * as yargs from 'yargs'
-import { compile } from './compile-api'
-import { UserFacingError } from './user-error'
+import yargs from 'yargs'
+import { compile } from './compile-api.ts'
+import { UserFacingError } from './user-error.ts'
 
 async function main() {
-  let args = await yargs.usage('Compiles a GraphQL schema to a TypeScript API').options({
+  let args = await yargs(Deno.args).usage('Compiles a GraphQL schema to a TypeScript API').options({
     schema: {
       type: 'array',
       string: true,
@@ -46,7 +46,7 @@ async function main() {
   } catch (e) {
     if (UserFacingError.is(e)) {
       console.error(e.message)
-      process.exit(1)
+      Deno.exit(1)
     } else {
       throw e
     }
