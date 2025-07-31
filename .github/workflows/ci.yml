@@ -39,15 +39,32 @@ jobs:
       run: deno task build
 
   build-matrix:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        target: 
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+          - x86_64-pc-windows-msvc
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Get version
+      id: version
+      shell: bash
+      run: |
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          VERSION="${GITHUB_REF#refs/tags/}"
+        else
+          VERSION=dev
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "ARTIFACT_NAME=${{ format('tgql-{0}', matrix.target) }}-$VERSION" >> $GITHUB_OUTPUT
+    
     - name: Setup Deno
       uses: denoland/setup-deno@v2
       with:
@@ -63,35 +80,25 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-deno-
 
-    - name: Build for ${{ matrix.os }}
-      run: deno task build
+    - name: Build for ${{ matrix.target }}
+      run: deno compile --allow-env --unstable-raw-imports --target ${{ matrix.target }} --output dist/${{ steps.version.outputs.ARTIFACT_NAME }} src/cli.ts
 
-    - name: Create distribution directory and package (Linux)
-      if: matrix.os == 'ubuntu-latest'
+    - name: Create distribution directory and package
       run: |
-        mv dist tgql
-        tar -czf tgql.tgz tgql
-        rm -rf tgql
-
-    - name: Create distribution directory and package (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        mv dist tgql
-        tar -czf tgql.tgz tgql
-        rm -rf tgql
-
-    - name: Create distribution directory and package (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        Rename-Item "dist" "tgql"
-        7z a -tzip -mx=9 tgql.zip tgql
-        Remove-Item -Recurse -Force tgql
-      shell: pwsh
+        mkdir -p ${{ steps.version.outputs.ARTIFACT_NAME }}
+        cp dist/${{ steps.version.outputs.ARTIFACT_NAME }} ${{ steps.version.outputs.ARTIFACT_NAME }}/tgql
+        if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+          mv ${{ steps.version.outputs.ARTIFACT_NAME }}/tgql ${{ steps.version.outputs.ARTIFACT_NAME }}/tgql.exe
+          zip -r ${{ steps.version.outputs.ARTIFACT_NAME }}.zip ${{ steps.version.outputs.ARTIFACT_NAME }}
+        else
+          tar -czf ${{ steps.version.outputs.ARTIFACT_NAME }}.tgz ${{ steps.version.outputs.ARTIFACT_NAME }}
+        fi
+        rm -rf ${{ steps.version.outputs.ARTIFACT_NAME }}
 
     - name: Upload platform-specific artifacts
       uses: actions/upload-artifact@v4
       with:
         compression-level: 0
-        name: tgql-${{ runner.os }}-${{ github.sha }}
-        path: tgql.*
+        name: ${{ steps.version.outputs.ARTIFACT_NAME }}
+        path: ${{ steps.version.outputs.ARTIFACT_NAME }}.*
         retention-days: 30
