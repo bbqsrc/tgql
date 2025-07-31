@@ -1,4 +1,4 @@
-import { query, $, QueryOutputType, OutputTypeOf, Node } from './sw.graphql.api.ts'
+import { query, $, type QueryOutputType, type OutputTypeOf, type Node } from './sw.graphql.api.ts'
 import { verify } from './verify.ts'
 
 let planetQuery = query(q => [

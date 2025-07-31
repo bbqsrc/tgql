@@ -1,4 +1,4 @@
-import { TypedDocumentNode } from '@graphql-typed-document-node/core'
+import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
 import { query, $, mutation, SpecialSkills, fragment, Card } from './zeus'
 
 const cardFragment = fragment(Card, c => [
