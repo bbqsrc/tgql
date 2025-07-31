@@ -38,13 +38,6 @@ jobs:
     - name: Build
       run: deno task build
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: tgql-binary-${{ runner.os }}-${{ github.sha }}
-        path: tgql
-        retention-days: 30
-
   build-matrix:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -76,25 +69,22 @@ jobs:
     - name: Create distribution directory and package (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        mkdir -p tgql
-        mv tgql tgql/
-        tar -czf tgql-linux.tgz tgql
+        mv dist tgql
+        tar -czf tgql.tgz tgql
         rm -rf tgql
 
     - name: Create distribution directory and package (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        mkdir -p tgql
-        mv tgql tgql/
-        tar -czf tgql-macos.tgz tgql
+        mv dist tgql
+        tar -czf tgql.tgz tgql
         rm -rf tgql
 
     - name: Create distribution directory and package (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        mkdir tgql
-        Move-Item "tgql.exe" "tgql/"
-        7z a -tzip -mx=9 tgql-windows.zip tgql
+        Rename-Item "dist" "tgql"
+        7z a -tzip -mx=9 tgql.zip tgql
         Remove-Item -Recurse -Force tgql
       shell: pwsh
 

@@ -10,8 +10,8 @@
     "./cli": "./src/cli.ts"
   },
   "tasks": {
-    "build": "deno compile --allow-env --unstable-raw-imports --output tgql src/cli.ts",
-    "test": "deno test --parallel --unstable-raw-imports --allow-read --allow-net --allow-env --allow-write --allow-run --coverage && deno coverage",
+    "build": "deno compile --allow-env --unstable-raw-imports --output dist/tgql src/cli.ts",
+    "test": "deno test --parallel --unstable-raw-imports --allow-read --allow-net --allow-env --allow-write --allow-run --coverage",
     "test:watch": "deno test --unstable-raw-imports --allow-read --allow-net --allow-env --allow-write --allow-run --watch",
     "regenerate": "deno task regenerate:big-schema && deno task regenerate:small-schema && deno task regenerate:sw-schema && deno task regenerate:country-schema",
     "regenerate:big-schema": "deno run --unstable-raw-imports --allow-read --allow-write --allow-net --allow-env src/cli.ts --schema examples/x.graphql --output examples/x.ts",
@@ -39,14 +39,13 @@
       "examples/",
       "test/",
       "dist/",
-      "node_modules/",
-      ".parcel-cache/",
       "coverage/",
       "*.test.ts",
       "*.spec.ts"
     ]
   },
   "imports": {
+    "@graphql-typed-document-node/core": "npm:@graphql-typed-document-node/core@^3.2.0",
     "@std/assert": "jsr:@std/assert@^1.0.13",
     "@std/fs": "jsr:@std/fs@^1.0.19",
     "@std/path": "jsr:@std/path@^1.1.1",

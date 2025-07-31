@@ -6,6 +6,7 @@
     "jsr:@std/internal@^1.0.6": "1.0.10",
     "jsr:@std/internal@^1.0.9": "1.0.10",
     "jsr:@std/path@^1.1.1": "1.1.1",
+    "npm:@graphql-typed-document-node/core@^3.2.0": "3.2.0_graphql@16.11.0",
     "npm:graphql-tag@^2.12.6": "2.12.6_graphql@16.11.0",
     "npm:graphql@^16.11.0": "16.11.0",
     "npm:undici@^7.13.0": "7.13.0",
@@ -36,6 +37,12 @@
     }
   },
   "npm": {
+    "@graphql-typed-document-node/core@3.2.0_graphql@16.11.0": {
+      "integrity": "sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==",
+      "dependencies": [
+        "graphql"
+      ]
+    },
     "ansi-regex@6.1.0": {
       "integrity": "sha512-7HSX4QQb4CspciLpVFwyRe79O3xsIZDDLER21kERQ71oaPodF8jL725AgJMFAYbooIqolJoRLuM81SpeUkpkvA=="
     },
@@ -123,6 +130,7 @@
       "jsr:@std/assert@^1.0.13",
       "jsr:@std/fs@^1.0.19",
       "jsr:@std/path@^1.1.1",
+      "npm:@graphql-typed-document-node/core@^3.2.0",
       "npm:graphql-tag@^2.12.6",
       "npm:graphql@^16.11.0",
       "npm:undici@^7.13.0",
