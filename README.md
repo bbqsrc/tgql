@@ -172,3 +172,16 @@ It can also be built as a self-contained binary:
 ```bash
 deno run build
 ```
+
+## License
+
+This project is licensed under either of
+
+ * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+### Acknowledgements
+
+This project is originally a fork of [typed-graphql-builder](https://github.com/typed-graphql-builder/typed-graphql-builder) by Gjorgji Kjosev.
