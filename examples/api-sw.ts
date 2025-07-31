@@ -1,9 +1,7 @@
 
 
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
-import { gql } from 'graphql-tag'
-
-/* tslint:disable */
+import gql from 'graphql-tag'
 
 const VariableName = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd8'
 
@@ -4526,7 +4524,6 @@ const $InputTypes: {[key: string]: {[key: string]: string}} = {
   
 }
 
-
 // We use a dummy conditional type that involves GenericType to defer the compiler's inference of
 // any possible variables nested in this type. This addresses a problem where variables are
 // inferred with type unknown
@@ -4545,4 +4542,3 @@ type ExactArgNames<GenericType, Constraint> = GenericType extends never
         ? ExactArgNames<GenericType[Key], Constraint[Key]>
         : never
     }
-
