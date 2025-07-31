@@ -1,5 +1,5 @@
 import { expandGlob } from "@std/fs";
-import * as gq from 'graphql';
+import { buildClientSchema, getIntrospectionQuery, parse, printSchema } from 'graphql';
 
 import type { Args, Options } from './compile-options.ts';
 import { compileSchemaDefinitions } from './compile.ts';
@@ -72,7 +72,7 @@ async function fetchOrRead(args: Args) {
         headers,
         body: JSON.stringify({
           operationName: 'IntrospectionQuery',
-          query: gq.getIntrospectionQuery(),
+          query: getIntrospectionQuery(),
         }),
       })
       let body: any = await res.json()
@@ -81,7 +81,7 @@ async function fetchOrRead(args: Args) {
           `Error introspecting schema from ${args.schema}: ${JSON.stringify(body.errors, null, 2)}`
         )
       }
-      loadedSchemas.push(gq.printSchema(gq.buildClientSchema(body.data)))
+      loadedSchemas.push(printSchema(buildClientSchema(body.data)))
     } else if (args.schema === '') {
       let res = ''
       const reader = Deno.stdin.readable.getReader();
@@ -114,7 +114,7 @@ async function fetchOrRead(args: Args) {
 export function compileSchemas(schemaStrings: string | string[], options: Options = {}): string {
   let schemaArray = Array.isArray(schemaStrings) ? schemaStrings : [schemaStrings]
 
-  let schemas = schemaArray.map(schemaString => gq.parse(schemaString, { noLocation: false }))
+  let schemas = schemaArray.map(schemaString => parse(schemaString, { noLocation: false }))
 
   let schemaDefinitions = schemas.flatMap(s => s.definitions)
 

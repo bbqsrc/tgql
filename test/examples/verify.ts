@@ -1,7 +1,7 @@
-import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
-import { print, parse, validate, buildSchema } from 'graphql'
-import { dirname, join } from '@std/path'
-import { assertEquals } from '@std/assert'
+import { assertEquals } from 'jsr:@std/assert'
+import { dirname, join } from 'jsr:@std/path'
+import type { TypedDocumentNode } from 'npm:@graphql-typed-document-node/core'
+import { buildSchema, parse, print, validate } from 'npm:graphql'
 
 const __dirname = dirname(new URL(import.meta.url).pathname)
 

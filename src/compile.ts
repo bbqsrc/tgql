@@ -1,28 +1,46 @@
-import * as gq from 'graphql'
-import { Preamble, ExactArgNames } from './preamble.lib.ts'
-import { postamble } from './postamble.ts'
-import { UserFacingError } from './user-error.ts'
-import { getScalars } from './scalars.ts'
+import {
+  DefinitionNode,
+  EnumTypeDefinitionNode,
+  EnumValueDefinitionNode,
+  FieldDefinitionNode,
+  InputObjectTypeDefinitionNode,
+  InputValueDefinitionNode,
+  InterfaceTypeDefinitionNode,
+  isTypeExtensionNode,
+  Kind,
+  ObjectTypeDefinitionNode,
+  OperationTypeNode,
+  ScalarTypeDefinitionNode,
+  SchemaDefinitionNode,
+  StringValueNode,
+  TypeExtensionNode,
+  TypeNode,
+  UnionTypeDefinitionNode,
+} from 'graphql'
 import type { Options } from './compile-options.ts'
+import { postamble } from './postamble.ts'
+import { ExactArgNames, Preamble } from './preamble.lib.ts'
+import { getScalars } from './scalars.ts'
+import { UserFacingError } from './user-error.ts'
 
 type SupportedExtensibleNodes =
-  | gq.InterfaceTypeDefinitionNode
-  | gq.ObjectTypeDefinitionNode
-  | gq.InputObjectTypeDefinitionNode
+  | InterfaceTypeDefinitionNode
+  | ObjectTypeDefinitionNode
+  | InputObjectTypeDefinitionNode
 
 type FieldOf<T extends SupportedExtensibleNodes> = T extends
-  | gq.ObjectTypeDefinitionNode
-  | gq.InterfaceTypeDefinitionNode
-  ? gq.FieldDefinitionNode
-  : T extends gq.InputObjectTypeDefinitionNode
-  ? gq.InputValueDefinitionNode
+  | ObjectTypeDefinitionNode
+  | InterfaceTypeDefinitionNode
+  ? FieldDefinitionNode
+  : T extends InputObjectTypeDefinitionNode
+  ? InputValueDefinitionNode
   : never
 
 /**
  * Compile a list of schema definitions with the specified options into an output script string
  */
 export function compileSchemaDefinitions(
-  schemaDefinitions: gq.DefinitionNode[],
+  schemaDefinitions: DefinitionNode[],
   options: Options = {}
 ) {
   let outputScript = ''
@@ -35,25 +53,25 @@ export function compileSchemaDefinitions(
   const outputObjectTypeNames = new Set()
 
   const enumTypes = schemaDefinitions.flatMap(def => {
-    if (def.kind === gq.Kind.ENUM_TYPE_DEFINITION) return [def.name.value]
+    if (def.kind === Kind.ENUM_TYPE_DEFINITION) return [def.name.value]
     return []
   })
 
   const scalarTypeNames = schemaDefinitions.flatMap(def => {
-    if (def.kind === gq.Kind.SCALAR_TYPE_DEFINITION) return [def.name.value]
+    if (def.kind === Kind.SCALAR_TYPE_DEFINITION) return [def.name.value]
     return []
   })
 
   const scalars = getScalars(scalarTypeNames, options.scalars)
 
-  const schemaExtensionsMap = schemaDefinitions.filter(gq.isTypeExtensionNode).reduce((acc, el) => {
+  const schemaExtensionsMap = schemaDefinitions.filter(isTypeExtensionNode).reduce((acc, el) => {
     if (acc.has(el.name.value)) {
       acc.get(el.name.value)!.push(el)
     } else {
       acc.set(el.name.value, [el])
     }
     return acc
-  }, new Map<string, gq.TypeExtensionNode[]>())
+  }, new Map<string, TypeExtensionNode[]>())
 
   function getExtendedFields<T extends SupportedExtensibleNodes>(sd: T) {
     let fieldExtensions = (schemaExtensionsMap.get(sd.name.value) || []).flatMap(
@@ -68,14 +86,14 @@ export function compileSchemaDefinitions(
 
     if (
       options.includeTypename &&
-      sd.kind != gq.Kind.INTERFACE_TYPE_DEFINITION &&
-      sd.kind != gq.Kind.INPUT_OBJECT_TYPE_DEFINITION
+      sd.kind != Kind.INTERFACE_TYPE_DEFINITION &&
+      sd.kind != Kind.INPUT_OBJECT_TYPE_DEFINITION
     ) {
       fieldList.push({
-        kind: gq.Kind.FIELD_DEFINITION,
-        name: { kind: gq.Kind.NAME, value: '__typename' },
-        type: { kind: gq.Kind.NAMED_TYPE, name: { value: 'String', kind: gq.Kind.NAME } },
-        description: { kind: gq.Kind.STRING, value: '' },
+        kind: Kind.FIELD_DEFINITION,
+        name: { kind: Kind.NAME, value: '__typename' },
+        type: { kind: Kind.NAMED_TYPE, name: { value: 'String', kind: Kind.NAME } },
+        description: { kind: Kind.STRING, value: '' },
         directives: [],
       } as any)
     }
@@ -100,7 +118,7 @@ export function compileSchemaDefinitions(
 
   const inheritanceMap = new Map(
     schemaDefinitions.flatMap(def => {
-      if (def.kind === gq.Kind.OBJECT_TYPE_DEFINITION) {
+      if (def.kind === Kind.OBJECT_TYPE_DEFINITION) {
         return [[def.name.value, def.interfaces?.map(ifc => ifc.name.value)]]
       }
       return []
@@ -149,60 +167,60 @@ export function compileSchemaDefinitions(
 
   function printTypeWrapped(
     wrappedType: string,
-    wrapperDef: gq.TypeNode,
+    wrapperDef: TypeNode,
     notNull: boolean = false
   ): string {
     switch (wrapperDef.kind) {
-      case gq.Kind.NON_NULL_TYPE:
+      case Kind.NON_NULL_TYPE:
         return `${printTypeWrapped(wrappedType, wrapperDef.type, true)}`
-      case gq.Kind.LIST_TYPE:
+      case Kind.LIST_TYPE:
         return `Array<${printTypeWrapped(wrappedType, wrapperDef.type)}>${
           !notNull ? ' | null' : ''
         }`
-      case gq.Kind.NAMED_TYPE:
+      case Kind.NAMED_TYPE:
         return `${toTSTypeName(wrappedType)}${!notNull ? ' | null' : ''}`
     }
   }
 
-  function printType(def: gq.TypeNode, notNull: boolean = false): string {
+  function printType(def: TypeNode, notNull: boolean = false): string {
     switch (def.kind) {
-      case gq.Kind.NON_NULL_TYPE:
+      case Kind.NON_NULL_TYPE:
         return `${printType(def.type, true)}`
-      case gq.Kind.LIST_TYPE:
+      case Kind.LIST_TYPE:
         return `Readonly<Array<${printType(def.type)}>>${!notNull ? ' | null' : ''}`
-      case gq.Kind.NAMED_TYPE:
+      case Kind.NAMED_TYPE:
         return `${toTSTypeName(def.name.value)}${!notNull ? ' | null' : ''}`
     }
   }
 
-  function printTypeGql(def: gq.TypeNode, notNull: boolean = false): string {
+  function printTypeGql(def: TypeNode, notNull: boolean = false): string {
     switch (def.kind) {
-      case gq.Kind.NON_NULL_TYPE:
+      case Kind.NON_NULL_TYPE:
         return `${printTypeGql(def.type, true)}`
-      case gq.Kind.LIST_TYPE:
+      case Kind.LIST_TYPE:
         return `[${printTypeGql(def.type)}]${notNull ? '!' : ''}`
-      case gq.Kind.NAMED_TYPE:
+      case Kind.NAMED_TYPE:
         return `${def.name.value}${notNull ? '!' : ''}`
     }
   }
 
-  function printTypeBase(def: gq.TypeNode): string {
+  function printTypeBase(def: TypeNode): string {
     switch (def.kind) {
-      case gq.Kind.NON_NULL_TYPE:
+      case Kind.NON_NULL_TYPE:
         return `${printTypeBase(def.type)}`
-      case gq.Kind.LIST_TYPE:
+      case Kind.LIST_TYPE:
         return `${printTypeBase(def.type)}`
-      case gq.Kind.NAMED_TYPE:
+      case Kind.NAMED_TYPE:
         return `${def.name.value}`
     }
   }
 
-  function printInputField(def: gq.InputValueDefinitionNode) {
-    const canBeOmitted = def.type.kind !== gq.Kind.NON_NULL_TYPE || def.defaultValue !== undefined
+  function printInputField(def: InputValueDefinitionNode) {
+    const canBeOmitted = def.type.kind !== Kind.NON_NULL_TYPE || def.defaultValue !== undefined
     return `${def.name.value}${canBeOmitted ? '?' : ''}: ${printType(def.type)}`
   }
 
-  function printDocumentation(description?: gq.StringValueNode) {
+  function printDocumentation(description?: StringValueNode) {
     return description?.value.length ?? 0 > 0
       ? `
 /**
@@ -211,7 +229,7 @@ export function compileSchemaDefinitions(
       : ''
   }
 
-  function printObjectType(def: gq.ObjectTypeDefinitionNode) {
+  function printObjectType(def: ObjectTypeDefinitionNode) {
     const className = def.name.value
     return `
 ${printDocumentation(def.description)}
@@ -227,7 +245,7 @@ export class ${className} extends $Base<"${className}"> {
   }
 
   function generateFunctionFieldDefinition(
-    field: gq.FieldDefinitionNode,
+    field: FieldDefinitionNode,
     includeArgs: boolean
   ): string {
     const methodArgs: string[] = []
@@ -266,7 +284,7 @@ export class ${className} extends $Base<"${className}"> {
     }
   }
 
-  function printField(field: gq.FieldDefinitionNode, typename: string) {
+  function printField(field: FieldDefinitionNode, typename: string) {
     const fieldTypeName = printTypeBase(field.type)
 
     let hasArgs = !!field.arguments?.length,
@@ -278,7 +296,7 @@ export class ${className} extends $Base<"${className}"> {
       let validDefinitions = generateFunctionFieldDefinition(field, true)
 
       const hasOnlyMaybeInputs = (field.arguments ?? []).every(
-        def => def.type.kind !== gq.Kind.NON_NULL_TYPE
+        def => def.type.kind !== Kind.NON_NULL_TYPE
       )
       if (hasOnlyMaybeInputs && hasArgs && hasSelector) {
         validDefinitions +=
@@ -319,7 +337,7 @@ export class ${className} extends $Base<"${className}"> {
     }
   }
 
-  function printInterface(def: gq.InterfaceTypeDefinitionNode) {
+  function printInterface(def: InterfaceTypeDefinitionNode) {
     const className = def.name.value
 
     const additionalTypes = reverseInheritanceMap.get(className) ?? []
@@ -338,7 +356,7 @@ export class ${def.name.value} extends $Interface<${InterfaceObject}, "${def.nam
 }`
   }
 
-  function printInputObjectType(def: gq.InputObjectTypeDefinitionNode) {
+  function printInputObjectType(def: InputObjectTypeDefinitionNode) {
     return `
 ${printDocumentation(def.description)}
 export type ${def.name.value} = {
@@ -349,7 +367,7 @@ export type ${def.name.value} = {
     `
   }
 
-  function printInputTypeMap(defs: gq.InputObjectTypeDefinitionNode[]) {
+  function printInputTypeMap(defs: InputObjectTypeDefinitionNode[]) {
     return `
 const $InputTypes: {[key: string]: {[key: string]: string}} = {
   ${defs
@@ -365,7 +383,7 @@ const $InputTypes: {[key: string]: {[key: string]: string}} = {
 `
   }
 
-  function printScalar(def: gq.ScalarTypeDefinitionNode) {
+  function printScalar(def: ScalarTypeDefinitionNode) {
     let typeName = def.name.value
     if (scalarMap.get(typeName) === typeName) return ''
 
@@ -375,7 +393,7 @@ export type ${def.name.value} = ${scalarMap.get(typeName) ?? 'unknown'}
 `
   }
 
-  function printUnion(def: gq.UnionTypeDefinitionNode) {
+  function printUnion(def: UnionTypeDefinitionNode) {
     // TODO: collect all interfaces that the named type implements too
     const baseTypes = def.types?.map(t => printTypeBase(t)) ?? []
     const additionalTypes = Array.from(
@@ -392,11 +410,11 @@ export class ${def.name.value} extends $Union<${UnionObject}, "${def.name.value}
 }`
   }
 
-  function printEnumValue(def: gq.EnumValueDefinitionNode) {
+  function printEnumValue(def: EnumValueDefinitionNode) {
     return `${printDocumentation(def.description)}
   ${def.name.value} = "${def.name.value}"`
   }
-  function printEnum(def: gq.EnumTypeDefinitionNode) {
+  function printEnum(def: EnumTypeDefinitionNode) {
     return `
   ${printDocumentation(def.description)}
 export enum ${def.name.value} {
@@ -405,7 +423,7 @@ export enum ${def.name.value} {
   `
   }
 
-  function printSchema(def: gq.SchemaDefinitionNode) {
+  function printSchema(def: SchemaDefinitionNode) {
     return `
   const $Root = {
     ${def.operationTypes.map(op => `${op.operation}: ${printType(op.type, true)}`).join(',\n')}
@@ -426,30 +444,30 @@ export enum ${def.name.value} {
   write(printAtomicTypes())
   write(printEnumList())
 
-  let rootNode: gq.SchemaDefinitionNode | null = null
+  let rootNode: SchemaDefinitionNode | null = null
 
   for (let def of schemaDefinitions) {
     switch (def.kind) {
-      case gq.Kind.OBJECT_TYPE_DEFINITION:
+      case Kind.OBJECT_TYPE_DEFINITION:
         write(printObjectType(def))
         outputObjectTypeNames.add(def.name.value)
         break
-      case gq.Kind.INPUT_OBJECT_TYPE_DEFINITION:
+      case Kind.INPUT_OBJECT_TYPE_DEFINITION:
         write(printInputObjectType(def))
         break
-      case gq.Kind.SCALAR_TYPE_DEFINITION:
+      case Kind.SCALAR_TYPE_DEFINITION:
         write(printScalar(def))
         break
-      case gq.Kind.UNION_TYPE_DEFINITION:
+      case Kind.UNION_TYPE_DEFINITION:
         write(printUnion(def))
         break
-      case gq.Kind.ENUM_TYPE_DEFINITION:
+      case Kind.ENUM_TYPE_DEFINITION:
         write(printEnum(def))
         break
-      case gq.Kind.INTERFACE_TYPE_DEFINITION:
+      case Kind.INTERFACE_TYPE_DEFINITION:
         write(printInterface(def))
         break
-      case gq.Kind.SCHEMA_DEFINITION:
+      case Kind.SCHEMA_DEFINITION:
         rootNode = def
     }
   }
@@ -461,15 +479,15 @@ export enum ${def.name.value} {
       )
     }
     rootNode = {
-      kind: gq.Kind.SCHEMA_DEFINITION,
+      kind: Kind.SCHEMA_DEFINITION,
       operationTypes: [
         {
-          kind: gq.Kind.OPERATION_TYPE_DEFINITION,
-          operation: gq.OperationTypeNode.QUERY,
+          kind: Kind.OPERATION_TYPE_DEFINITION,
+          operation: OperationTypeNode.QUERY,
           type: {
-            kind: gq.Kind.NAMED_TYPE,
+            kind: Kind.NAMED_TYPE,
             name: {
-              kind: gq.Kind.NAME,
+              kind: Kind.NAME,
               value: 'Query',
             },
           },
@@ -477,12 +495,12 @@ export enum ${def.name.value} {
         ...(outputObjectTypeNames.has('Mutation')
           ? [
               {
-                kind: gq.Kind.OPERATION_TYPE_DEFINITION as const,
-                operation: gq.OperationTypeNode.MUTATION,
+                kind: Kind.OPERATION_TYPE_DEFINITION as const,
+                operation: OperationTypeNode.MUTATION,
                 type: {
-                  kind: gq.Kind.NAMED_TYPE as const,
+                  kind: Kind.NAMED_TYPE as const,
                   name: {
-                    kind: gq.Kind.NAME as const,
+                    kind: Kind.NAME as const,
                     value: 'Mutation',
                   },
                 },
@@ -496,7 +514,7 @@ export enum ${def.name.value} {
   write(postamble(rootNode.operationTypes.map(o => o.operation.toString())))
   write(
     printInputTypeMap(
-      schemaDefinitions.filter(def => def.kind === gq.Kind.INPUT_OBJECT_TYPE_DEFINITION) as any[]
+      schemaDefinitions.filter(def => def.kind === Kind.INPUT_OBJECT_TYPE_DEFINITION) as any[]
     )
   )
 
