@@ -101,6 +101,7 @@ jobs:
     - name: Upload platform-specific artifacts
       uses: actions/upload-artifact@v4
       with:
+        compression-level: 0
         name: tgql-${{ runner.os }}-${{ github.sha }}
-        path: tgql-*.*
+        path: tgql.*
         retention-days: 30

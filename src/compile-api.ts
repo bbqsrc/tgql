@@ -1,10 +1,10 @@
-import * as gq from 'graphql'
-import { request } from 'undici'
 import { expandGlob } from "@std/fs";
+import * as gq from 'graphql';
+import { request } from 'undici';
 
-import { UserFacingError } from './user-error.ts'
-import { compileSchemaDefinitions } from './compile.ts'
-import type { Args, Options } from './compile-options.ts'
+import type { Args, Options } from './compile-options.ts';
+import { compileSchemaDefinitions } from './compile.ts';
+import { UserFacingError } from './user-error.ts';
 
 /**
  * Compiles the given schema file or URL and writes to the specified output file
@@ -22,6 +22,25 @@ export async function compile(args: Args) {
     console.log(outputScript)
   } else {
     await Deno.writeTextFile(args.output, outputScript)
+    
+    // Format the output file with deno fmt
+    try {
+      const formatProcess = new Deno.Command(Deno.execPath(), {
+        args: ["fmt", args.output],
+        stdout: "piped",
+        stderr: "piped",
+      })
+      
+      const { success, stderr } = await formatProcess.output()
+      
+      if (!success) {
+        const errorText = new TextDecoder().decode(stderr)
+        console.warn(`Warning: Failed to format output file with deno fmt: ${errorText}`)
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.warn(`Warning: Failed to run deno fmt on output file: ${errorMessage}`)
+    }
   }
 }
 

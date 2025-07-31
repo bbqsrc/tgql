@@ -1,7 +1,6 @@
-import { assertEquals, assertMatch } from "@std/assert";
 import { expandGlob } from "@std/fs";
-import { compile } from '../src/compile-api.ts'
-import { dirname, join, basename } from "@std/path";
+import { basename, dirname, join } from "@std/path";
+import { compile } from '../src/compile-api.ts';
 
 const __dirname = dirname(new URL(import.meta.url).pathname);
 
@@ -40,7 +39,7 @@ async function globSync(pattern: string, cwd: string): Promise<string[]> {
 //   examples: no mutations, no query root, unions, enums, custom scalars, optionals etc.
 
 function compileTs(_file: string) {
-  const command = new Deno.Command("deno", {
+  const command = new Deno.Command(Deno.execPath(), {
     args: ["check", _file],
     cwd: __dirname,
     stdout: "piped",
