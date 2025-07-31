@@ -17,6 +17,11 @@ async function main() {
       describe: 'Additional headers to send to the server if passing a server URL',
       default: [] as string[],
     },
+    bearer: {
+      type: 'string',
+      describe: 'Bearer token to add as Authorization header when fetching schema from URL',
+      required: false,
+    },
     schemaExtensions: {
       type: 'array',
       describe: 'Additional schemas that extend the base',

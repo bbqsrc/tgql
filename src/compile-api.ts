@@ -53,6 +53,11 @@ async function fetchOrRead(args: Args) {
   for (let schemaSpec of schemas) {
     if (UrlRegex.test(schemaSpec)) {
       let headers = args.headers?.flatMap(h => h.split(':')) ?? []
+      
+      // Add Authorization header if bearer token is provided
+      if (args.bearer) {
+        headers.push('authorization', `Bearer ${args.bearer}`)
+      }
 
       let res = await request(schemaSpec, {
         method: 'POST',

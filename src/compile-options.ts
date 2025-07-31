@@ -11,6 +11,10 @@ export type Args = {
    * If the schema is an URL, additional headers to send
    */
   headers?: string[]
+  /**
+   * Bearer token to add as Authorization header when fetching schema from URL
+   */
+  bearer?: string
 
   /**
    * A list of scalars and paths to their type definitions
