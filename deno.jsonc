@@ -2,7 +2,7 @@
   "name": "@necessary/tgql",
   "version": "0.0.0-development",
   "description": "TypeScript code generator that creates type-safe GraphQL query builders from GraphQL schemas",
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "repository": "github:typed-graphql-builder/typed-graphql-builder",
   "keywords": ["graphql", "typescript", "codegen", "type-safe", "query-builder"],
   "exports": {
