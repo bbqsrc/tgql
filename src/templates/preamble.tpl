@@ -1,10 +1,9 @@
-/* BEGIN PREAMBLE */
+import type { TypedDocumentNode } from "npm:@graphql-typed-document-node/core"
+import { gql } from "npm:graphql-tag"
+
 type $Atomic = string | number | boolean | null | undefined
 const $InputTypes: { [key: string]: { [key: string]: string } } = {}
 const $Enums = new Set()
-
-import type { TypedDocumentNode } from "npm:@graphql-typed-document-node/core"
-import { gql } from "npm:graphql-tag"
 
 const VariableName = " $1fcbcbff-3e78-462f-b45c-668a3e09bfd8"
 
