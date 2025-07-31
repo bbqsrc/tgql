@@ -1,5 +1,5 @@
-import { verify } from './verify'
-import { query, mutation, SpecialSkills, fragment, Card, $$, $ } from './zeus.graphql.api'
+import { verify } from './verify.ts'
+import { query, mutation, SpecialSkills, fragment, Card, $$, $ } from './zeus.graphql.api.ts'
 
 const cardFragment = fragment(Card, c => [
   c.Attack, //

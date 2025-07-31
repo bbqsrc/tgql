@@ -28,7 +28,7 @@ export async function compile(args: Args) {
 const UrlRegex = /^https?:\/\//
 
 async function fetchOrRead(args: Args) {
-  let loadedSchemas = []
+  let loadedSchemas: string[] = []
   let schemas = Array.isArray(args.schema) ? args.schema : [args.schema]
 
   for (let schemaSpec of schemas) {

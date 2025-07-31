@@ -50,7 +50,7 @@ function compileTs(_file: string) {
   return command.outputSync();
 }
 
-const schemas = [];
+const schemas: string[] = [];
 for await (const entry of expandGlob("examples/*.graphql", { root: __dirname })) {
   if (entry.isFile) {
     schemas.push(entry.path);

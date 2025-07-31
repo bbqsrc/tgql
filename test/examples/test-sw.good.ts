@@ -1,5 +1,5 @@
-import { query, $, QueryOutputType, OutputTypeOf, Node } from './sw.graphql.api'
-import { verify } from './verify'
+import { query, $, QueryOutputType, OutputTypeOf, Node } from './sw.graphql.api.ts'
+import { verify } from './verify.ts'
 
 let planetQuery = query(q => [
   q.planet({ id: $('planet_id') }, p => [

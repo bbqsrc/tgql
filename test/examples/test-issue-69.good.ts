@@ -1,5 +1,5 @@
-import { verify } from './verify'
-import { $, query } from './issue-69.graphql.api'
+import { verify } from './verify.ts'
+import { $, query } from './issue-69.graphql.api.ts'
 
 const EmptyVariablesQuery = query(q => [
   q.topLevelVariablesNotNullable({

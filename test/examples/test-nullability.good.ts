@@ -1,5 +1,5 @@
-import { query } from './nullability.graphql.api'
-import { verify } from './verify'
+import { query } from './nullability.graphql.api.ts'
+import { verify } from './verify.ts'
 
 const basicQuery = query(q => [q.posts(p => [p.id, p.author(a => [a.name])])])
 

@@ -1,5 +1,5 @@
-import { mutation, $ } from './scalars.graphql.api'
-import { verify } from './verify'
+import { mutation, $ } from './scalars.graphql.api.ts'
+import { verify } from './verify.ts'
 
 let createScalarMutation = mutation(m => [
   m.createObject(

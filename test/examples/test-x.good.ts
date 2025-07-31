@@ -1,5 +1,5 @@
-import { verify } from './verify'
-import { query, order_by, $, $$, mutation } from './x.graphql.api'
+import { verify } from './verify.ts'
+import { query, order_by, $, $$, mutation } from './x.graphql.api.ts'
 
 let orderByTest = query(q => [
   q.bookings(

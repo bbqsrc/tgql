@@ -1,5 +1,5 @@
-import { all, query, $, $$ } from './countries.graphql.api'
-import { verify } from './verify'
+import { all, query, $, $$ } from './countries.graphql.api.ts'
+import { verify } from './verify.ts'
 
 // Allow both overloads
 let twoCountries = query(q => [

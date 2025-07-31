@@ -1,7 +1,7 @@
 
 
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
-import gql from 'graphql-tag'
+import { gql } from 'graphql-tag'
 
 const VariableName = ' $1fcbcbff-3e78-462f-b45c-668a3e09bfd8'
 
