@@ -8,10 +8,10 @@ Urql, and graphql-request.
 
 ```bash
 # Install as a global binary
-deno install --allow-all --global --name tgql jsr:@necessary/tgql/cli
+deno install --allow-all --global --name tgql jsr:@necessary/tgql
 
 # Or run directly without installation
-deno run --allow-all jsr:@necessary/tgql/cli --help
+deno run --allow-all jsr:@necessary/tgql --help
 ```
 
 ## Generating the API
@@ -21,7 +21,7 @@ deno run --allow-all jsr:@necessary/tgql/cli --help
 tgql https://countries.trevorblades.com --output generated-api.ts
 
 # Or running directly with Deno
-deno run --allow-all jsr:@necessary/tgql/cli \
+deno run --allow-all jsr:@necessary/tgql \
   schema.graphql \
   --output generated-api.ts
 ```

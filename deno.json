@@ -6,8 +6,7 @@
   "repository": "github:bbqsrc/tgql",
   "keywords": ["graphql", "typescript", "codegen", "type-safe", "query-builder"],
   "exports": {
-    ".": "./src/compile.ts",
-    "./cli": "./src/cli.ts"
+    ".": "./src/cli.ts"
   },
   "tasks": {
     "build": "deno compile --allow-env --allow-read --allow-write --allow-run --unstable-raw-imports --output dist/tgql src/cli.ts",
